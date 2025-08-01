@@ -1,6 +1,6 @@
 data_cfg:
   dataset_name: CASIA-B
-  dataset_root: /kaggle/working/casia-b/output
+  dataset_root: /kaggle/working/CASIA-B-pkl
   dataset_partition: ./datasets/CASIA-B/CASIA-B.json
   num_workers: 4
   remove_no_gallery: false # Remove probe if no gallery for it
@@ -9,7 +9,7 @@ data_cfg:
 evaluator_cfg:
   enable_float16: true
   restore_ckpt_strict: true
-  restore_hint: 60000
+  restore_hint: 0
   save_name: GaitBase_DA
   sampler:
     batch_shuffle: false
@@ -93,10 +93,10 @@ trainer_cfg:
   log_iter: 100
   restore_ckpt_strict: true
   restore_hint: 0
-  save_iter: 10000
+  save_iter: 1000
   save_name: GaitBase_GETA
   sync_BN: true
-  total_iter: 60000
+  total_iter: 10000
   sampler:
     batch_shuffle: true
     batch_size:

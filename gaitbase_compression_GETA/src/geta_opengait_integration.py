@@ -6,8 +6,8 @@ import yaml
 import os
 
 # Add paths for both frameworks
-sys.path.append('/kaggle/working/geta')  # Adjust to your GETA path
-sys.path.append('/kaggle/working/OpenGait')  # Adjust to your OpenGait path
+sys.path.append('/kaggle/working/GAITBASE_x_GETA/geta')  # Adjust to your GETA path
+sys.path.append('/kaggle/working/GAITBASE_x_GETA/OpenGait')  # Adjust to your OpenGait path
 
 # GETA imports
 from only_train_once import OTO
@@ -17,7 +17,7 @@ from opengait.data import transform as base_transform
 from opengait.data.dataset import DataSet
 from opengait.modeling import models
 from opengait.utils import config_loader, get_ddp_module, get_msg_mgr, is_main_process
-
+from opengait.modeling.losses import TripletLoss
 class GETAOpenGaitTrainer:
     def __init__(self, config_path):
         self.config_path = config_path
@@ -111,7 +111,6 @@ class GETAOpenGaitTrainer:
         self.losses = []
         for loss_cfg in self.cfg['loss_cfg']:
             if loss_cfg['type'] == 'TripletLoss':
-                from opengait.modeling.losses import TripletLoss
                 loss_fn = TripletLoss(margin=loss_cfg['margin'])
             elif loss_cfg['type'] == 'CrossEntropyLoss':
                 loss_fn = nn.CrossEntropyLoss()
