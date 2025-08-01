@@ -5,9 +5,45 @@ from torch.utils.data import DataLoader
 import yaml
 import os
 
-# Add paths for both frameworks
-sys.path.append('/kaggle/working/GAITBASE_x_GETA/geta')  # Adjust to your GETA path
-sys.path.append('/kaggle/working/GAITBASE_x_GETA/OpenGait')  # Adjust to your OpenGait path
+# Dynamic path detection - remove hardcoded paths
+def setup_paths():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Try different path configurations
+    possible_geta_paths = [
+        '/kaggle/working/geta',
+        '/kaggle/working/GAITBASE_x_GETA/geta',
+        os.path.join(current_dir, '../../geta'),
+        './geta'
+    ]
+    
+    possible_opengait_paths = [
+        '/kaggle/working/OpenGait',
+        '/kaggle/working/GAITBASE_x_GETA/OpenGait', 
+        os.path.join(current_dir, '../../OpenGait'),
+        './OpenGait'
+    ]
+    
+    # Add GETA path
+    for path in possible_geta_paths:
+        if os.path.exists(path):
+            sys.path.insert(0, path)
+            print(f"✅ Found GETA at: {path}")
+            break
+    else:
+        raise ImportError("❌ Could not find GETA directory")
+    
+    # Add OpenGait path  
+    for path in possible_opengait_paths:
+        if os.path.exists(path):
+            sys.path.insert(0, path)
+            print(f"✅ Found OpenGait at: {path}")
+            break
+    else:
+        raise ImportError("❌ Could not find OpenGait directory")
+
+# Setup paths before imports
+setup_paths()
 
 # GETA imports
 from only_train_once import OTO
@@ -18,6 +54,7 @@ from opengait.data.dataset import DataSet
 from opengait.modeling import models
 from opengait.utils import config_loader, get_ddp_module, get_msg_mgr, is_main_process
 from opengait.modeling.losses import TripletLoss
+
 class GETAOpenGaitTrainer:
     def __init__(self, config_path):
         self.config_path = config_path
@@ -53,15 +90,22 @@ class GETAOpenGaitTrainer:
             training=False
         )
         
-        # Create data loaders
+        # ✅ FIX: Use OpenGait's batch sampler approach like main.py
+        from opengait.data.sampler import TripletSampler
+        
+        sampler_cfg = self.cfg['trainer_cfg']['sampler']
+        self.train_sampler = TripletSampler(
+            self.train_dataset, 
+            batch_size=sampler_cfg['batch_size']
+        )
+        
         self.train_loader = DataLoader(
             dataset=self.train_dataset,
-            batch_size=self.cfg['trainer_cfg']['sampler']['batch_size'][0] * 
-                      self.cfg['trainer_cfg']['sampler']['batch_size'][1],
-            shuffle=True,
+            batch_sampler=self.train_sampler,
             num_workers=self.cfg['data_cfg']['num_workers']
         )
         
+        # Test loader (simpler)
         self.test_loader = DataLoader(
             dataset=self.test_dataset,
             batch_size=self.cfg['evaluator_cfg']['sampler']['batch_size'],
@@ -69,30 +113,35 @@ class GETAOpenGaitTrainer:
             num_workers=self.cfg['data_cfg']['num_workers']
         )
         
-    def setup_geta_oto(self):
-        """Setup GETA OTO for compression"""
-        # Create dummy input based on your gait data shape
-        # CASIA-B silhouettes are typically: (batch, frames, channels, height, width)
-        # For GaitBase: (batch_size, frames=30, channels=1, height=64, width=44)
-    # Check your actual model input requirements:
-        if hasattr(self.model, 'get_input_shape'):
-            input_shape = self.model.get_input_shape()
-        else:
-            # Default for GaitBase on CASIA-B
-            input_shape = (1, 30, 1, 64, 44)  # Adjust based on your setup
+    def create_dummy_input(self):
+        """Create appropriate dummy input for GaitBase"""
+        # Get frame configuration from config
+        frames_num = self.cfg['trainer_cfg']['sampler'].get('frames_num_fixed', 30)
         
-        dummy_input = torch.rand(*input_shape)
-
-        print(f"Using dummy input shape: {dummy_input.shape}")
-    
+        # For CASIA-B: silhouettes are grayscale (1 channel)
+        # Typical size after preprocessing: 64x44
+        batch_size = 1
+        channels = 1
+        height = 64  # Adjust based on your preprocessing
+        width = 44   # Adjust based on your preprocessing
+        
+        dummy_input = torch.rand(batch_size, frames_num, channels, height, width)
         
         if torch.cuda.is_available():
             dummy_input = dummy_input.cuda()
+        
+        return dummy_input
+        
+    def setup_geta_oto(self):
+        """Setup GETA OTO for compression"""
+        # Create appropriate dummy input
+        dummy_input = self.create_dummy_input()
+        print(f"Using dummy input shape: {dummy_input.shape}")
             
         # Initialize OTO
         self.oto = OTO(model=self.model, dummy_input=dummy_input)
         
-        # Setup HESSO optimizer
+        # Setup HESSO optimizer with conservative settings for gait
         total_steps = self.cfg['trainer_cfg']['total_iter']
         
         self.optimizer = self.oto.hesso(
@@ -100,14 +149,14 @@ class GETAOpenGaitTrainer:
             lr=self.cfg['optimizer_cfg']['lr'],
             weight_decay=self.cfg['optimizer_cfg']['weight_decay'],
             momentum=self.cfg['optimizer_cfg']['momentum'],
-            target_group_sparsity=0.7,  # 70% compression - adjust as needed
-            start_pruning_step=total_steps // 10,  # Start at 10% of training
-            pruning_periods=10,
-            pruning_steps=total_steps // 4  # Finish pruning at 25% of training
+            target_group_sparsity=0.6,  # Start conservative for gait recognition
+            start_pruning_step=total_steps // 5,  # Wait longer before pruning
+            pruning_periods=15,  # More gradual pruning
+            pruning_steps=total_steps // 3,  # Longer pruning period
         )
         
     def setup_losses(self):
-        """Setup loss functions from config"""
+        """Setup loss functions from config - match OpenGait structure"""
         self.losses = []
         for loss_cfg in self.cfg['loss_cfg']:
             if loss_cfg['type'] == 'TripletLoss':
@@ -119,8 +168,39 @@ class GETAOpenGaitTrainer:
                 
             self.losses.append({
                 'loss_fn': loss_fn,
-                'weight': loss_cfg['loss_term_weight']
+                'weight': loss_cfg['loss_term_weight'],
+                'type': loss_cfg['type']
             })
+    
+    def validate_compression_compatibility(self):
+        """Check if model is compatible with GETA compression"""
+        print("=== COMPRESSION COMPATIBILITY CHECK ===")
+        
+        # Test forward pass with dummy input
+        dummy_input = self.create_dummy_input()
+        
+        try:
+            with torch.no_grad():
+                output = self.model(dummy_input)
+            print("✅ Forward pass successful")
+            print(f"Output shape: {output.shape if hasattr(output, 'shape') else type(output)}")
+        except Exception as e:
+            print(f"❌ Forward pass failed: {e}")
+            return False
+        
+        # Check for problematic layers
+        problematic_layers = []
+        for name, module in self.model.named_modules():
+            if isinstance(module, (nn.LSTM, nn.GRU, nn.RNN)):
+                problematic_layers.append(f"{name}: {type(module).__name__}")
+        
+        if problematic_layers:
+            print("⚠️ Found potentially problematic layers for structured pruning:")
+            for layer in problematic_layers:
+                print(f"  - {layer}")
+            print("Consider using lower compression ratios")
+        
+        return True
     
     def train(self):
         """Main training loop with GETA compression"""
@@ -136,7 +216,6 @@ class GETAOpenGaitTrainer:
             self.optimizer, milestones=milestones, gamma=gamma
         )
         
-        current_iter = 0
         data_iter = iter(self.train_loader)
         
         for iteration in range(total_iter):
@@ -146,9 +225,13 @@ class GETAOpenGaitTrainer:
                 data_iter = iter(self.train_loader)
                 batch_data = next(data_iter)
             
-            # Move data to GPU
-            inputs = batch_data[0]
-            labels = batch_data[1]
+            # ✅ FIX: Handle OpenGait's data format properly
+            if isinstance(batch_data, (list, tuple)) and len(batch_data) >= 2:
+                inputs = batch_data[0]
+                labels = batch_data[1]
+            else:
+                print(f"❌ Unexpected batch data format: {type(batch_data)}")
+                continue
             
             if torch.cuda.is_available():
                 inputs = inputs.cuda()
@@ -157,16 +240,23 @@ class GETAOpenGaitTrainer:
             # Forward pass
             outputs = self.model(inputs)
             
-            # Calculate losses
+            # ✅ FIX: Handle multiple outputs properly (like main.py)
             total_loss = 0
             loss_info = {}
             
             for i, loss_config in enumerate(self.losses):
-                if i == 0:  # TripletLoss
-                    loss_val = loss_config['loss_fn'](outputs, labels)
-                else:  # CrossEntropyLoss
-                    # For classification loss, you might need to extract specific outputs
-                    loss_val = loss_config['loss_fn'](outputs, labels)
+                if loss_config['type'] == 'TripletLoss':
+                    # TripletLoss expects feature embeddings
+                    if isinstance(outputs, (list, tuple)):
+                        loss_val = loss_config['loss_fn'](outputs[0], labels)
+                    else:
+                        loss_val = loss_config['loss_fn'](outputs, labels)
+                elif loss_config['type'] == 'CrossEntropyLoss':
+                    # CrossEntropyLoss expects logits
+                    if isinstance(outputs, (list, tuple)):
+                        loss_val = loss_config['loss_fn'](outputs[1], labels)
+                    else:
+                        loss_val = loss_config['loss_fn'](outputs, labels)
                 
                 weighted_loss = loss_val * loss_config['weight']
                 total_loss += weighted_loss
@@ -238,7 +328,6 @@ class GETAOpenGaitTrainer:
         print(f"Compressed model size: {compressed_size / (1024**2):.2f} MB")
         print(f"Size reduction: {((full_size - compressed_size) / full_size) * 100:.2f}%")
         
-        # TODO: Add accuracy evaluation here
         return {
             'full_size_mb': full_size / (1024**2),
             'compressed_size_mb': compressed_size / (1024**2),
