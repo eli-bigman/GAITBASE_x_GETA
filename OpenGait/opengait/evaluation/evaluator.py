@@ -1,7 +1,7 @@
 import os
 from time import strftime, localtime
 import numpy as np
-from utils import get_msg_mgr, mkdir
+from opengait.utils import get_msg_mgr, mkdir
 
 from .metric import mean_iou, cuda_dist, compute_ACC_mAP, evaluate_rank, evaluate_many
 from .re_rank import re_ranking

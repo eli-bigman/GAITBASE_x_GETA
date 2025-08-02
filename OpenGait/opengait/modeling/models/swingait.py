@@ -782,7 +782,7 @@ from ..modules import BasicBlock2D, BasicBlockP3D
 import torch.optim as optim
 import os.path as osp
 from collections import OrderedDict
-from utils import get_valid_args, get_attr_from
+from opengait.utils import get_valid_args, get_attr_from
 
 class SwinGait(BaseModel):
     def __init__(self, cfgs, training): 

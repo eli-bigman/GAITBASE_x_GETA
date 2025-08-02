@@ -6,7 +6,7 @@ from ..base_model import BaseModel
 from .gaitgl import GaitGL
 from ..modules import GaitAlign
 from torchvision.transforms import Resize
-from utils import get_valid_args, get_attr_from, is_list_or_tuple
+from opengait.utils import get_valid_args, get_attr_from, is_list_or_tuple
 import os.path as osp
 
 

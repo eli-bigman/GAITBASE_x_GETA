@@ -132,7 +132,7 @@ class Post_ResNet9(ResNet):
         return x
 
 
-from utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
+from opengait.utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
 from ... import backbones
 class Baseline(nn.Module):
     def __init__(self, model_cfg):

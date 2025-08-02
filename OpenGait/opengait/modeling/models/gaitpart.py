@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from ..base_model import BaseModel
 from ..modules import SetBlockWrapper, HorizontalPoolingPyramid, PackSequenceWrapper, SeparateFCs
-from utils import clones
+from opengait.utils import clones
 
 
 class BasicConv1d(nn.Module):
