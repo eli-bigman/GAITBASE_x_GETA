@@ -432,8 +432,8 @@ class GETAOpenGaitTrainer:
             # The raw_batch contains individual samples as [(data_list, seq_info), ...]
             # We need to reorganize this into the format expected by inputs_pretreament
             
-            # Unpack raw batch data
-            seqs_batch = []
+            # Initialize batch containers
+            all_seqs = []  # Will contain all sequences for this batch
             labs_batch = []
             typs_batch = []
             vies_batch = []
@@ -441,7 +441,8 @@ class GETAOpenGaitTrainer:
             
             for data_list, seq_info in raw_batch:
                 # data_list contains the actual gait data (variable length tensors)
-                seqs_batch.append(data_list)
+                # For CASIA-B, data_list[0] contains the silhouette frames
+                all_seqs.append(data_list[0])  # Add this sequence to batch
                 
                 # seq_info contains [label, type, view, paths]
                 labs_batch.append(seq_info[0])  # label
@@ -451,6 +452,10 @@ class GETAOpenGaitTrainer:
                 # Calculate sequence length for this sample
                 seq_len = len(data_list[0]) if data_list else 0
                 seqL_batch.append(seq_len)
+            
+            # ✅ FIX: seqs_batch should be a list of data types, not individual sequences
+            # For CASIA-B silhouettes, we have one data type containing all sequences
+            seqs_batch = [all_seqs]  # List with one element containing all sequences
             
             # Convert to format expected by inputs_pretreament
             seqL_batch = torch.tensor(seqL_batch).unsqueeze(0)  # Shape: [1, batch_size]
