@@ -3,7 +3,7 @@ import os
 import argparse
 import torch
 import torch.nn as nn
-from modeling import models
+from opengait.modeling import models
 from opengait.utils import config_loader, get_ddp_module, init_seeds, params_count, get_msg_mgr
 
 parser = argparse.ArgumentParser(description='Main program for opengait.')
