@@ -255,7 +255,8 @@ class GETAOpenGaitTrainer:
     def create_dummy_input(self):
         """Create dummy input for GETA model tracing.
         
-        OpenGait models expect a single argument 'inputs' which is a 5-tuple: (seqs, labs, typs, vies, seqL)
+        OpenGait models expect preprocessed input that matches inputs_pretreament output:
+        (ipts, labs, typs, vies, seqL) where ipts is a list of tensors
         Based on CASIA-B dataset format.
         """
         batch_size = 4
@@ -263,25 +264,29 @@ class GETAOpenGaitTrainer:
         height = 64 
         width = 44
         
-        # Create the 5-tuple that OpenGait expects
-        seqs = torch.randn(batch_size, frames, height, width)  # sequences
-        labs = torch.randint(0, 10, (batch_size,))           # labels  
-        typs = torch.randint(0, 2, (batch_size,))            # types (nm, bg, cl)
-        vies = torch.randint(0, 11, (batch_size,))           # views (0-10 for CASIA-B)
-        seqL = torch.full((batch_size,), frames)             # sequence lengths
+        # Create dummy silhouettes tensor matching the expected format after preprocessing
+        # Format: [batch_size, frames, height, width] (CASIA-B silhouettes format)
+        sils = torch.randn(batch_size, frames, height, width)
+        
+        # Create other components to match inputs_pretreament output
+        labs = torch.randint(0, 10, (batch_size,)).long()    # labels as long tensor
+        typs = ['nm'] * batch_size                           # types (nm, bg, cl) - keep as list
+        vies = ['090'] * batch_size                          # views - keep as list  
+        seqL = torch.full((batch_size,), frames).int()       # sequence lengths as int tensor
         
         if torch.cuda.is_available():
-            seqs = seqs.cuda()
+            sils = sils.cuda()
             labs = labs.cuda()
-            typs = typs.cuda()
-            vies = vies.cuda()
             seqL = seqL.cuda()
         
-        # OpenGait forward expects: forward(inputs) where inputs is the 5-tuple
-        # So we need to wrap the tuple as a single argument
-        inputs_tuple = (seqs, labs, typs, vies, seqL)
+        # Match inputs_pretreament output format:
+        # ipts is a list of tensors (for different sequence types)
+        ipts = [sils]  # List containing the silhouettes tensor
         
-        # Return the tuple wrapped in another tuple so GETA passes it as a single argument
+        # Return the exact format that OpenGait forward() expects after preprocessing
+        inputs_tuple = (ipts, labs, typs, vies, seqL)
+        
+        # Wrap in tuple so GETA passes it as a single argument to forward()
         return (inputs_tuple,)
         
     def setup_geta_oto(self):
@@ -290,7 +295,9 @@ class GETAOpenGaitTrainer:
         
         # Simple dummy input for GETA model tracing only
         dummy_input = self.create_dummy_input()
-        print(f"Created dummy input for GETA tracing: single arg containing 5-tuple with shapes: {[x.shape for x in dummy_input[0]]}")
+        inputs_tuple = dummy_input[0]  # Extract the inner tuple
+        ipts, labs, typs, vies, seqL = inputs_tuple
+        print(f"Created dummy input for GETA tracing: preprocessed format with ipts[0] shape: {ipts[0].shape}, labs: {labs.shape}, seqL: {seqL.shape}")
         
         # Initialize OTO with the model (GETA tutorial step 1)
         try:
