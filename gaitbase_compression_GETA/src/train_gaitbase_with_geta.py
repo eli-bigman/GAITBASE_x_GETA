@@ -41,6 +41,14 @@ def main():
     # Import after path setup
     from geta_opengait_integration import GETAOpenGaitTrainer
 
+    # Convert relative path to absolute path
+    if not os.path.isabs(args.config):
+        args.config = os.path.abspath(args.config)
+    
+    if not os.path.exists(args.config):
+        print(f"❌ Config file not found: {args.config}")
+        return
+
     # Initialize trainer
     trainer = GETAOpenGaitTrainer(args.config)
 
