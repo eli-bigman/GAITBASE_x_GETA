@@ -66,7 +66,6 @@ from opengait.data.collate_fn import CollateFn
 from opengait.modeling import models
 from opengait.utils import config_loader, get_msg_mgr
 from opengait.utils.common import np2var, list2var
-from opengait.modeling.losses import TripletLoss
 
 class GETAOpenGaitTrainer:
     def __init__(self, config_path):
@@ -353,21 +352,12 @@ class GETAOpenGaitTrainer:
             print("⚠️ Using standard SGD optimizer instead")
         
     def setup_losses(self):
-        """Setup loss functions from config - match OpenGait structure"""
-        self.losses = []
-        for loss_cfg in self.cfg['loss_cfg']:
-            if loss_cfg['type'] == 'TripletLoss':
-                loss_fn = TripletLoss(margin=loss_cfg['margin'])
-            elif loss_cfg['type'] == 'CrossEntropyLoss':
-                loss_fn = nn.CrossEntropyLoss()
-            else:
-                raise ValueError(f"Unknown loss type: {loss_cfg['type']}")
-                
-            self.losses.append({
-                'loss_fn': loss_fn,
-                'weight': loss_cfg['loss_term_weight'],
-                'type': loss_cfg['type']
-            })
+        """Setup loss functions using OpenGait's LossAggregator"""
+        # Import OpenGait's LossAggregator
+        from opengait.modeling.loss_aggregator import LossAggregator
+        
+        # Use OpenGait's loss aggregator instead of manual loss calculation
+        self.loss_aggregator = LossAggregator(self.cfg['loss_cfg'])
     
     def validate_compression_compatibility(self):
         """Check if model is compatible with GETA compression"""
@@ -437,41 +427,25 @@ class GETAOpenGaitTrainer:
             # Forward pass with preprocessed OpenGait data
             retval = self.model(ipts)
             
-            # ✅ FIX: Use OpenGait's output format - model returns dict with training_feat
+            # ✅ FIX: Use OpenGait's output format and loss aggregator
             training_feat = retval['training_feat']
+            visual_summary = retval['visual_summary']
+            del retval
             
-            # Calculate losses using OpenGait's approach - use loss aggregator like they do
-            total_loss = 0
-            for loss_config in self.losses:
-                loss_type = loss_config['type']
-                loss_fn = loss_config['loss_fn']
-                weight = loss_config['weight']
-                
-                if loss_type == 'TripletLoss':
-                    # Get triplet loss data from model output
-                    triplet_data = training_feat['triplet']
-                    embeddings = triplet_data['embeddings']
-                    labels = triplet_data['labels']
-                    loss_val = loss_fn(embeddings, labels)
-                    
-                elif loss_type == 'CrossEntropyLoss':
-                    # Get softmax loss data from model output
-                    softmax_data = training_feat['softmax']
-                    logits = softmax_data['logits']
-                    labels = softmax_data['labels']
-                    loss_val = loss_fn(logits, labels)
-                
-                weighted_loss = loss_val * weight
-                total_loss += weighted_loss
+            # ✅ FIX: Use OpenGait's LossAggregator for proper loss calculation
+            loss_sum, loss_info = self.loss_aggregator(training_feat)
             
             # Backward pass
             self.optimizer.zero_grad()
-            total_loss.backward()
+            loss_sum.backward()
             self.optimizer.step()
             scheduler.step()
             
+            # Store loss value for logging before cleanup
+            loss_value = loss_sum.item()
+            
             # ✅ FIX: Memory cleanup to prevent OOM
-            del retval, training_feat, total_loss
+            del training_feat, loss_sum, loss_info
             if iteration % 10 == 0:  # Periodic cleanup
                 torch.cuda.empty_cache()
                 gc.collect()
@@ -483,7 +457,7 @@ class GETAOpenGaitTrainer:
                     opt_metrics = self.optimizer.compute_metrics()
                     self.msg_mgr.log_info(
                         f"Iter: {iteration}/{total_iter}, "
-                        f"Loss: {total_loss.item():.4f}, "
+                        f"Loss: {loss_value:.4f}, "
                         f"Group Sparsity: {opt_metrics.group_sparsity:.3f}, "
                         f"LR: {scheduler.get_last_lr()[0]:.6f}"
                     )
@@ -491,7 +465,7 @@ class GETAOpenGaitTrainer:
                     # Standard optimizer
                     self.msg_mgr.log_info(
                         f"Iter: {iteration}/{total_iter}, "
-                        f"Loss: {total_loss.item():.4f}, "
+                        f"Loss: {loss_value:.4f}, "
                         f"LR: {scheduler.get_last_lr()[0]:.6f}"
                     )
             
