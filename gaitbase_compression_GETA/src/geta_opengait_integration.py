@@ -257,9 +257,9 @@ class GETAOpenGaitTrainer:
         # Get configuration
         frames_num = self.cfg['trainer_cfg']['sampler'].get('frames_num_fixed', 30)
         
-        # For CASIA-B: silhouettes are grayscale (1 channel)
-        # Typical size after preprocessing: 64x44
-        batch_size = 1
+        # Create dummy sequence lengths - let's try with proper batch structure
+        # If the issue is that seqL[0] becomes an int instead of list, we need multiple sequences
+        batch_size = 2  # Use batch size 2 to avoid the single-item issue
         
         # Create dummy sequence data - OpenGait expects [batch_size, frames, height, width]
         # Note: OpenGait models typically work with silhouettes (grayscale)
@@ -274,8 +274,8 @@ class GETAOpenGaitTrainer:
         # Create dummy views (batch_size,) - camera angles 
         dummy_vies = ['000'] * batch_size  # camera view angle
         
-        # Create dummy sequence lengths - should be a tensor for OpenGait processing
-        dummy_seqL = torch.tensor([frames_num], dtype=torch.int32)  # Tensor with sequence length
+        # Create dummy sequence lengths - tensor with multiple sequence lengths
+        dummy_seqL = torch.tensor([frames_num, frames_num], dtype=torch.int32)  # Two sequences
         
         # Move to GPU if available
         if torch.cuda.is_available():
