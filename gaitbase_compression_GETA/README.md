@@ -2,6 +2,26 @@
 
 This project integrates GETA (Gradient-based and Efficient Training Algorithm) with OpenGait's GaitBase model for neural network compression while maintaining gait recognition performance.
 
+## 🚨 CRITICAL: PyTorch Version Requirement
+
+**⚠️ MUST READ FIRST ⚠️**
+
+GETA requires **EXACTLY** PyTorch 2.0.1! Install the correct version before proceeding:
+
+```bash
+# REQUIRED: GETA Dependencies - EXACT versions
+pip install "torch==2.0.1+cu117" \
+            "torchvision==0.15.2+cu117" \
+            "torchaudio==2.0.2" \
+            --extra-index-url https://download.pytorch.org/whl/cu117
+```
+
+❌ **PyTorch 2.1+ will fail** with ONNX export errors  
+❌ **PyTorch 1.x will fail** with missing features  
+✅ **PyTorch 2.0.1+cu117 works perfectly**
+
+See `SETUP_GUIDE.md` for complete setup instructions.
+
 ## 📁 Project Structure
 
 ```
