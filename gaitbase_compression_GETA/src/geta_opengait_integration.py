@@ -48,7 +48,7 @@ from only_train_once import OTO
 from opengait.data import transform as base_transform
 from opengait.data.dataset import DataSet
 from opengait.modeling import models
-from opengait.utils import config_loader, get_ddp_module, get_msg_mgr, is_main_process
+from opengait.utils import config_loader, get_msg_mgr
 from opengait.modeling.losses import TripletLoss
 
 class GETAOpenGaitTrainer:
