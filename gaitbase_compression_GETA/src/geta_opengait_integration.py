@@ -213,16 +213,16 @@ class GETAOpenGaitTrainer:
     
     def setup_data(self):
         """Setup CASIA-B dataset with OpenGait's data pipeline"""
-        # Training data - DataSet constructor takes (data_cfg, training)
+        # Training data - DataSet constructor takes (data_cfg, training) as positional args
         self.train_dataset = DataSet(
-            self.cfg['data_cfg'],  # Single config, not list
-            training=True
+            self.cfg['data_cfg'],  # First arg: data config
+            True                   # Second arg: training flag
         )
         
-        # Test data  
+        # Test data
         self.test_dataset = DataSet(
-            self.cfg['data_cfg'],  # Single config, not list
-            training=False
+            self.cfg['data_cfg'],  # First arg: data config
+            False                  # Second arg: training flag
         )
         
         # ✅ FIX: Use OpenGait's batch sampler approach like main.py
