@@ -587,49 +587,72 @@ class GETAOpenGaitTrainer:
             # Create output directory
             os.makedirs('./compressed_models', exist_ok=True)
             
-            # ✅ Method 1: Save state dict instead of full model (safer)
+            # 🎯 Generate descriptive filename with training details
+            total_iter = self.cfg['trainer_cfg']['total_iter']
+            target_sparsity = self.cfg['geta_cfg']['target_group_sparsity']
+            
+            # ✅ Method 1: Save state dict with detailed naming
             print("Saving compressed model state dict...")
             compressed_state_dict = self.model.state_dict()
-            torch.save(compressed_state_dict, './compressed_models/gaitbase_compressed_state_dict.pth')
+            
+            # 🎯 Descriptive filename: GaitBase_GETA_70comp_60Kiter_final.pth
+            final_model_name = f"GaitBase_GETA_{int(target_sparsity*100)}comp_{total_iter//1000}Kiter_final.pth"
+            torch.save(compressed_state_dict, f'./compressed_models/{final_model_name}')
+            print(f"✅ Final compressed model saved: {final_model_name}")
             
             # ✅ Save model configuration for reconstruction
             model_config = {
                 'model_cfg': self.cfg['model_cfg'],
+                'training_info': {
+                    'total_iterations': total_iter,
+                    'target_sparsity': target_sparsity,
+                    'actual_sparsity': None,  # Will be filled below
+                    'training_completed': True,
+                    'model_name': final_model_name
+                },
                 'compression_info': {
-                    'target_sparsity': self.cfg['geta_cfg']['target_group_sparsity'],
-                    'training_iterations': self.cfg['trainer_cfg']['total_iter']
+                    'target_sparsity': target_sparsity,
+                    'training_iterations': total_iter,
+                    'compression_method': 'GETA',
+                    'framework': 'OpenGait'
                 }
             }
-            torch.save(model_config, './compressed_models/model_config.pth')
+            
+            # ✅ Calculate and store actual compression metrics
+            if hasattr(self.optimizer, 'compute_metrics'):
+                metrics = self.optimizer.compute_metrics()
+                actual_sparsity = float(metrics.group_sparsity)
+                model_config['training_info']['actual_sparsity'] = actual_sparsity
+                
+                print(f"🎯 Final compression ratio: {actual_sparsity:.3f}")
+                print(f"🎯 Model size reduction: {actual_sparsity*100:.1f}%")
+                
+                # Save detailed metrics
+                metrics_dict = {
+                    'group_sparsity': actual_sparsity,
+                    'compression_ratio': actual_sparsity,
+                    'remaining_parameters': float(1 - actual_sparsity),
+                    'target_sparsity': target_sparsity,
+                    'training_iterations': total_iter,
+                    'model_filename': final_model_name
+                }
+                torch.save(metrics_dict, f'./compressed_models/GaitBase_GETA_{int(target_sparsity*100)}comp_{total_iter//1000}Kiter_metrics.pth')
+            
+            # Save config with descriptive naming
+            torch.save(model_config, f'./compressed_models/GaitBase_GETA_{int(target_sparsity*100)}comp_{total_iter//1000}Kiter_config.pth')
             
             # ✅ Method 2: Try GETA's compression with error handling
             try:
                 print("Attempting GETA subnet construction...")
-                # Try with different parameters to avoid pickle issues
-                self.oto.construct_subnet(
-                    out_dir='./compressed_models'
-                )
+                self.oto.construct_subnet(out_dir='./compressed_models')
                 print("✅ GETA subnet construction completed!")
             except Exception as e:
                 print(f"⚠️ GETA subnet construction failed: {e}")
                 print("✅ Using fallback: state dict saved successfully")
                 
-            # ✅ Calculate compression metrics
-            if hasattr(self.optimizer, 'compute_metrics'):
-                metrics = self.optimizer.compute_metrics()
-                print(f"🎯 Final compression ratio: {metrics.group_sparsity:.3f}")
-                print(f"🎯 Model size reduction: {metrics.group_sparsity*100:.1f}%")
-                
-                # Save metrics
-                metrics_dict = {
-                    'group_sparsity': float(metrics.group_sparsity),
-                    'compression_ratio': float(metrics.group_sparsity),
-                    'remaining_parameters': float(1 - metrics.group_sparsity)
-                }
-                torch.save(metrics_dict, './compressed_models/compression_metrics.pth')
-                
             print("✅ Model compression completed successfully!")
-        
+            print(f"🎯 Production model ready: {final_model_name}")
+            
         except Exception as e:
             print(f"❌ Compression export failed: {e}")
             print("✅ Training completed successfully with 70% sparsity applied!")

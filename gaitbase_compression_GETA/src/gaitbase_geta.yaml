@@ -10,12 +10,12 @@ evaluator_cfg:
   enable_float16: true
   restore_ckpt_strict: true
   restore_hint: 0
-  save_name: GETA_Comp_GaitBase_DA
+  save_name: GaitBase_GETA_60K_Production  # 🎯 Match trainer save_name
   sampler:
     batch_shuffle: false
-    batch_size: 8  # Reduced from 16 to save memory
+    batch_size: 8  # Optimized for memory and performance
     sample_type: all_ordered # all indicates whole sequence used to test, while ordered means input sequence by its natural order; Other options:   fixed_unordered
-    frames_all_limit: 360 # Reduced from 720 to save memory
+    frames_all_limit: 360 # Balanced performance/memory for production
   metric: euc # cos
   transform:
     - type: BaseSilCuttingTransform
@@ -89,14 +89,14 @@ geta_cfg:
 trainer_cfg:
   enable_float16: false # half_percesion float for memory reduction and speedup set to false to let GETA optimization work
   fix_BN: false
-  with_test: true # whether to test model after each training iteration
-  log_iter: 10  # Log every 10 iterations for testing
+  with_test: false # Set to false to focus on training for production run
+  log_iter: 500  # Log every 500 iterations for good monitoring
   restore_ckpt_strict: true
   restore_hint: 0
-  save_iter: 20  # Save checkpoint every 20 iterations for testing
-  save_name: GaitBase_GETA_Test
+  save_iter: 2000  # Save every 2000 iterations (25 checkpoints total for 40K training)
+  save_name: GaitBase_GETA_60K_Production  # 🎯 Production model name with iteration count
   sync_BN: true
-  total_iter: 100  # Quick test with 100 iterations
+  total_iter: 40000  # 🎯 Full production training (optimal for high accuracy)
   sampler:
     batch_shuffle: true
     batch_size:
