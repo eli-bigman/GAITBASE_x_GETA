@@ -260,19 +260,22 @@ class GETAOpenGaitTrainer:
         Based on CASIA-B dataset format.
         """
         batch_size = 4
-        frames = 30
+        frames_per_seq = 15  # Reduced to avoid cumulative overflow
         height = 64 
         width = 44
         
-        # Create dummy silhouettes tensor matching the expected format after preprocessing
-        # Format: [batch_size, frames, height, width] (CASIA-B silhouettes format)
-        sils = torch.randn(batch_size, frames, height, width)
+        # Calculate total frames needed: batch_size * frames_per_seq
+        total_frames = batch_size * frames_per_seq
+        
+        # Create dummy silhouettes tensor with total frames across batch
+        # Format: [batch_size, total_frames, height, width] (CASIA-B silhouettes format)
+        sils = torch.randn(batch_size, total_frames, height, width)
         
         # Create other components to match inputs_pretreament output
         labs = torch.randint(0, 10, (batch_size,)).long()    # labels as long tensor
         typs = ['nm'] * batch_size                           # types (nm, bg, cl) - keep as list
         vies = ['090'] * batch_size                          # views - keep as list  
-        seqL = torch.full((1, batch_size), frames).int()     # sequence lengths as 2D tensor [1, batch_size]
+        seqL = torch.full((1, batch_size), frames_per_seq).int()     # sequence lengths as 2D tensor [1, batch_size]
         
         if torch.cuda.is_available():
             sils = sils.cuda()
