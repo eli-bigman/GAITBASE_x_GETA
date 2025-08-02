@@ -274,14 +274,14 @@ class GETAOpenGaitTrainer:
         # Create dummy views (batch_size,) - camera angles 
         dummy_vies = ['000'] * batch_size  # camera view angle
         
-        # Create dummy sequence lengths (batch_size,)
-        dummy_seqL = torch.full((batch_size,), frames_num, dtype=torch.int32)
+        # Create dummy sequence lengths (batch_size,) - should be a list, not tensor
+        dummy_seqL = [frames_num] * batch_size  # List of sequence lengths
         
         # Move to GPU if available
         if torch.cuda.is_available():
             dummy_seq = dummy_seq.cuda()
             dummy_labs = dummy_labs.cuda()
-            dummy_seqL = dummy_seqL.cuda()
+            # Note: seqL stays as a list, not moved to GPU
         
         # OpenGait expects inputs as a tuple of (seqs, labs, typs, vies, seqL)
         # where seqs is a list of sequences (for different input types)
@@ -293,7 +293,7 @@ class GETAOpenGaitTrainer:
         """Setup GETA OTO for compression"""
         # Create appropriate dummy input
         dummy_input = self.create_dummy_input()
-        print(f"Using dummy input shape: {dummy_input.shape}")
+        print(f"Using dummy input with sequence shape: {dummy_input[0][0].shape}")
             
         # Initialize OTO
         self.oto = OTO(model=self.model, dummy_input=dummy_input)
