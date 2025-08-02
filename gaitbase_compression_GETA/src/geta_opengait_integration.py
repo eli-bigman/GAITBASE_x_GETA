@@ -213,19 +213,15 @@ class GETAOpenGaitTrainer:
     
     def setup_data(self):
         """Setup CASIA-B dataset with OpenGait's data pipeline"""
-        # Training data
-        train_transform = base_transform.get_transform(self.cfg['trainer_cfg']['transform'])
+        # Training data - DataSet constructor takes (data_cfg, training)
         self.train_dataset = DataSet(
-            [self.cfg['data_cfg']], 
-            train_transform, 
+            self.cfg['data_cfg'],  # Single config, not list
             training=True
         )
         
         # Test data  
-        test_transform = base_transform.get_transform(self.cfg['evaluator_cfg']['transform'])
         self.test_dataset = DataSet(
-            [self.cfg['data_cfg']], 
-            test_transform, 
+            self.cfg['data_cfg'],  # Single config, not list
             training=False
         )
         
