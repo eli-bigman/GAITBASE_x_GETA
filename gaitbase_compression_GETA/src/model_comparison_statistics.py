@@ -32,13 +32,49 @@ def setup_opengait_paths():
             if os.path.exists(opengait_subdir) and opengait_subdir not in sys.path:
                 sys.path.insert(0, opengait_subdir)
                 print(f"✅ Added OpenGait subdir: {opengait_subdir}")
-            return True
+            return path  # Return the found path
     
     print("❌ OpenGait path not found")
-    return False
+    return None
+
+def init_distributed_for_opengait():
+    """Initialize distributed training for OpenGait compatibility"""
+    try:
+        import torch
+        import torch.distributed as dist
+        
+        if dist.is_initialized():
+            print("✅ Distributed training already initialized")
+            return True
+        
+        # Set environment variables for single-process distributed training
+        os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
+        os.environ.setdefault('MASTER_PORT', '29500')
+        os.environ.setdefault('RANK', '0')
+        os.environ.setdefault('WORLD_SIZE', '1')
+        
+        # Initialize process group
+        backend = 'nccl' if torch.cuda.is_available() else 'gloo'
+        dist.init_process_group(
+            backend=backend,
+            init_method='env://',
+            world_size=1,
+            rank=0
+        )
+        
+        print(f"✅ Initialized distributed training with {backend} backend")
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Could not initialize distributed training: {e}")
+        return False
 
 # Setup paths before importing
-setup_opengait_paths()
+opengait_path = setup_opengait_paths()
+
+# Initialize distributed training if OpenGait is found
+if opengait_path:
+    init_distributed_for_opengait()
 
 def evaluate_model_accuracy_opengait(model_path, config_path, device='cuda'):
     """

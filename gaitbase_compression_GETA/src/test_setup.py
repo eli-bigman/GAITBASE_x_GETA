@@ -89,6 +89,28 @@ def test_integration():
         from geta_opengait_integration import GETAOpenGaitTrainer
         print("✅ Integration module import successful")
         
+        # Initialize distributed training for testing
+        import torch
+        import torch.distributed as dist
+        if not dist.is_initialized():
+            try:
+                import os
+                os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
+                os.environ.setdefault('MASTER_PORT', '29500')
+                os.environ.setdefault('RANK', '0')
+                os.environ.setdefault('WORLD_SIZE', '1')
+                
+                dist.init_process_group(
+                    backend='nccl' if torch.cuda.is_available() else 'gloo',
+                    init_method='env://',
+                    world_size=1,
+                    rank=0
+                )
+                print("✅ Initialized distributed training for testing")
+            except Exception as e:
+                print(f"⚠️ Could not initialize distributed training: {e}")
+                print("🔧 Will use fallback mode")
+        
         # Test config loading
         config_path = os.path.join(os.path.dirname(__file__), 'gaitbase_geta.yaml')
         trainer = GETAOpenGaitTrainer(config_path)

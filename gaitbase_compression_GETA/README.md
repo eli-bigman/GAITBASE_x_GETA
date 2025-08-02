@@ -21,7 +21,32 @@ gaitbase_compression_GETA/
 
 ## 🚀 Quick Start
 
-### 1. Environment Setup
+### 🎯 **RECOMMENDED: Use the Quick Start Script**
+
+For the easiest setup, use the all-in-one quick start script:
+
+```bash
+# Test environment setup
+python src/quick_start.py --action test
+
+# Run training with GETA compression
+python src/quick_start.py --action train --config src/gaitbase_geta.yaml --gpu 0
+
+# Evaluate a trained model
+python src/quick_start.py --action evaluate --config src/gaitbase_geta.yaml --model checkpoints/model.pth
+```
+
+This script automatically handles:
+- ✅ Path detection and setup
+- ✅ Distributed training initialization  
+- ✅ Environment validation
+- ✅ Error handling and fallbacks
+
+### 🔧 **Alternative: Manual Setup**
+
+If you prefer manual control:
+
+#### 1. Environment Setup
 
 First, test if your environment is properly configured:
 
@@ -34,8 +59,20 @@ This will verify:
 - ✅ All required imports work
 - ✅ Configuration files are found
 - ✅ GPU availability
+- ✅ Distributed training compatibility
 
-### 2. Training with GETA Compression
+#### 2. Training with GETA Compression
+
+Use the fixed training script that handles distributed training:
+
+```bash
+python src/train_gaitbase_with_geta_fixed.py \
+    --config src/gaitbase_geta.yaml \
+    --gpu 0 \
+    --validate
+```
+
+Or use the original script if distributed training is already set up:
 
 ```bash
 python src/train_gaitbase_with_geta.py \
@@ -49,7 +86,7 @@ Parameters:
 - `--gpu`: GPU device ID
 - `--validate`: Run compatibility check before training
 
-### 3. Evaluation
+#### 3. Evaluation
 
 After training, evaluate the compressed models:
 
@@ -101,6 +138,17 @@ trainer_cfg:
 
 ## 🧪 Troubleshooting
 
+### ⚡ **Critical Issue: Distributed Training Error**
+
+**Error**: `ValueError: Default process group has not been initialized, please make sure to call init_process_group.`
+
+**Why**: OpenGait requires PyTorch distributed training to be initialized, even for single-GPU training.
+
+**Solutions**:
+1. **✅ RECOMMENDED**: Use `quick_start.py` which handles this automatically
+2. **🔧 Manual Fix**: Use `train_gaitbase_with_geta_fixed.py` instead of the original training script
+3. **🛠️ Test First**: Run `python src/test_distributed.py` to verify distributed setup
+
 ### Common Issues:
 
 1. **FileNotFoundError: './configs/default.yaml'**
@@ -119,6 +167,18 @@ trainer_cfg:
    - **Cause**: Large batch sizes or model size
    - **Solution**: Reduce batch_size in config or use gradient accumulation
 
+5. **Distributed Training Issues**
+   - **Cause**: OpenGait's message manager requires distributed training
+   - **Solution**: The integration now automatically initializes single-GPU distributed training
+
+### 🔧 Error Fixes Applied:
+
+✅ **Fixed distributed training initialization**: Automatic setup for single-GPU training  
+✅ **Fixed working directory issue**: Integration automatically changes to OpenGait directory for config loading  
+✅ **Added path detection**: Dynamic path resolution for both Kaggle and local environments  
+✅ **Enhanced error handling**: Better error messages and validation  
+✅ **Added evaluation framework**: Comprehensive model testing and comparison  
+✅ **Created fallback message manager**: Works when distributed training fails  
 
 ## 📊 Output Files
 

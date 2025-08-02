@@ -84,6 +84,27 @@ def main():
     os.environ['OPENGAIT_PATH'] = opengait_path
     os.environ['GETA_PATH'] = geta_path
     
+    # Initialize distributed training for single GPU
+    try:
+        import torch
+        import torch.distributed as dist
+        if not dist.is_initialized():
+            os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
+            os.environ.setdefault('MASTER_PORT', '29500')
+            os.environ.setdefault('RANK', '0')
+            os.environ.setdefault('WORLD_SIZE', '1')
+            
+            dist.init_process_group(
+                backend='nccl' if torch.cuda.is_available() else 'gloo',
+                init_method='env://',
+                world_size=1,
+                rank=0
+            )
+            print("✅ Initialized distributed training for single GPU")
+    except Exception as e:
+        print(f"⚠️ Could not initialize distributed training: {e}")
+        print("🔧 Will attempt to use fallback mode")
+    
     try:
         # Import after path setup
         from geta_opengait_integration import GETAOpenGaitTrainer
