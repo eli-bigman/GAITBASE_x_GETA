@@ -442,8 +442,14 @@ class GETAOpenGaitTrainer:
             self.optimizer.step()
             scheduler.step()
             
-            # Store loss value for logging before cleanup
+            # Store loss value and accuracy for logging before cleanup
             loss_value = loss_sum.item()
+            
+            # ✅ ADD: Extract accuracy from loss_info before cleanup
+            accuracy_info = ""
+            if 'scalar/softmax/accuracy' in loss_info:
+                accuracy = loss_info['scalar/softmax/accuracy']
+                accuracy_info = f", Softmax Acc: {accuracy:.4f}"
             
             # ✅ FIX: Memory cleanup to prevent OOM
             del training_feat, loss_sum, loss_info
@@ -453,11 +459,13 @@ class GETAOpenGaitTrainer:
                 if hasattr(self, 'use_geta') and self.use_geta:
                     # GETA optimizer has metrics
                     opt_metrics = self.optimizer.compute_metrics()
+                    
                     self.msg_mgr.log_info(
                         f"Iter: {iteration}/{total_iter}, "
                         f"Loss: {loss_value:.4f}, "
                         f"Group Sparsity: {opt_metrics.group_sparsity:.3f}, "
                         f"LR: {scheduler.get_last_lr()[0]:.6f}"
+                        f"{accuracy_info}"
                     )
                 else:
                     # Standard optimizer
@@ -465,6 +473,7 @@ class GETAOpenGaitTrainer:
                         f"Iter: {iteration}/{total_iter}, "
                         f"Loss: {loss_value:.4f}, "
                         f"LR: {scheduler.get_last_lr()[0]:.6f}"
+                        f"{accuracy_info}"
                     )
             
             # ✅ Save checkpoint (this uses your config: save_iter: 1000)
