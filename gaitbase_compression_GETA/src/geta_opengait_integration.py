@@ -396,6 +396,10 @@ class GETAOpenGaitTrainer:
         """Main training loop with optional GETA compression"""
         print("🚀 Starting training...")
         
+        # ✅ FIX: Add memory optimization for GETA training
+        import gc
+        torch.cuda.empty_cache()  # Clear GPU cache before training
+        
         # Setup optimizer (GETA or fallback)
         if not hasattr(self, 'optimizer'):
             self.setup_geta_oto()
@@ -465,6 +469,12 @@ class GETAOpenGaitTrainer:
             total_loss.backward()
             self.optimizer.step()
             scheduler.step()
+            
+            # ✅ FIX: Memory cleanup to prevent OOM
+            del retval, training_feat, total_loss
+            if iteration % 10 == 0:  # Periodic cleanup
+                torch.cuda.empty_cache()
+                gc.collect()
             
             # Logging
             if iteration % log_iter == 0:
