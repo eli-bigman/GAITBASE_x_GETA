@@ -52,21 +52,21 @@ def main():
     # Initialize trainer
     trainer = GETAOpenGaitTrainer(args.config)
 
-    if args.validate:
-        print("Validating compression compatibility...")
-        if not trainer.validate_compression_compatibility():
-            print("❌ Compatibility issues detected. Please review model architecture.")
-            return
-        print("✅ Compatibility check passed. Proceeding with training.")
-
     print("Setting up model...")
     trainer.setup_model()
     
     print("Setting up data...")
     trainer.setup_data()
     
-    print("Setting up GETA OTO...")
-    trainer.setup_geta_oto()
+    if args.validate:
+        print("Validating compression compatibility...")
+        if not trainer.validate_compression_compatibility():
+            print("❌ Compatibility issues detected. Please review model architecture.")
+            return
+        print("✅ Compatibility check passed. Proceeding with training.")
+    else:
+        print("Setting up GETA OTO...")
+        trainer.setup_geta_oto()
     
     print("Setting up losses...")
     trainer.setup_losses()
