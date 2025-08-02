@@ -313,7 +313,6 @@ class GETAOpenGaitTrainer:
             self.optimizer = torch.optim.SGD(
                 self.model.parameters(),
                 lr=self.cfg['optimizer_cfg']['lr'],
-                momentum=self.cfg['optimizer_cfg']['momentum'],
                 weight_decay=self.cfg['optimizer_cfg']['weight_decay']
             )
             self.use_geta = False
@@ -327,7 +326,6 @@ class GETAOpenGaitTrainer:
                 variant='sgd',
                 lr=self.cfg['optimizer_cfg']['lr'],
                 weight_decay=self.cfg['optimizer_cfg']['weight_decay'],
-                momentum=self.cfg['optimizer_cfg']['momentum'],
                 target_group_sparsity=0.7,  # From config
                 start_pruning_step=total_steps // 4,  # Start pruning after 25%
                 pruning_periods=10,  # Gradual pruning
@@ -342,7 +340,6 @@ class GETAOpenGaitTrainer:
             self.optimizer = torch.optim.SGD(
                 self.model.parameters(),
                 lr=self.cfg['optimizer_cfg']['lr'],
-                momentum=self.cfg['optimizer_cfg']['momentum'],
                 weight_decay=self.cfg['optimizer_cfg']['weight_decay']
             )
             self.use_geta = False
