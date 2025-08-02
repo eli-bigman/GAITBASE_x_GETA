@@ -253,20 +253,32 @@ class GETAOpenGaitTrainer:
         )
         
     def create_dummy_input(self):
-        """Create simple dummy input for GETA initialization"""
-        # Keep it simple - just create a basic tensor that matches model input expectations
-        # GETA will trace the model with this, but actual training uses real OpenGait data
-        batch_size = 4  # Small batch for GETA tracing
-        seq_len = 30
-        height = 64
+        """Create dummy input for GETA model tracing.
+        
+        OpenGait models expect a 5-tuple: (seqs, labs, typs, vies, seqL)
+        Based on CASIA-B dataset format.
+        """
+        batch_size = 4
+        frames = 30
+        height = 64 
         width = 44
         
-        # Simple dummy tensor - GETA just needs this for model tracing
-        dummy_tensor = torch.randn(batch_size, seq_len, height, width)
+        # Create the 5-tuple that OpenGait expects
+        seqs = torch.randn(batch_size, frames, height, width)  # sequences
+        labs = torch.randint(0, 10, (batch_size,))           # labels  
+        typs = torch.randint(0, 2, (batch_size,))            # types (nm, bg, cl)
+        vies = torch.randint(0, 11, (batch_size,))           # views (0-10 for CASIA-B)
+        seqL = torch.full((batch_size,), frames)             # sequence lengths
+        
         if torch.cuda.is_available():
-            dummy_tensor = dummy_tensor.cuda()
-            
-        return dummy_tensor
+            seqs = seqs.cuda()
+            labs = labs.cuda()
+            typs = typs.cuda()
+            vies = vies.cuda()
+            seqL = seqL.cuda()
+        
+        # Return as tuple for GETA OTO initialization
+        return (seqs, labs, typs, vies, seqL)
         
     def setup_geta_oto(self):
         """Setup GETA OTO for compression - simplified approach following GETA tutorial"""
