@@ -10,7 +10,7 @@ evaluator_cfg:
   enable_float16: true
   restore_ckpt_strict: true
   restore_hint: 0
-  save_name: GaitBase_DA
+  save_name: GETA_Comp_GaitBase_DA
   sampler:
     batch_shuffle: false
     batch_size: 16
