@@ -62,6 +62,7 @@ from only_train_once import OTO
 # OpenGait imports
 from opengait.data import transform as base_transform
 from opengait.data.dataset import DataSet
+from opengait.data.collate_fn import CollateFn
 from opengait.modeling import models
 from opengait.utils import config_loader, get_msg_mgr
 from opengait.utils.common import np2var, list2var
@@ -227,7 +228,7 @@ class GETAOpenGaitTrainer:
             False                  # Second arg: training flag
         )
         
-        # ✅ FIX: Use OpenGait's batch sampler approach like main.py
+        # ✅ FIX: Use OpenGait's complete data loading setup including CollateFn
         from opengait.data.sampler import TripletSampler
         
         sampler_cfg = self.cfg['trainer_cfg']['sampler']
@@ -236,23 +237,26 @@ class GETAOpenGaitTrainer:
             batch_size=sampler_cfg['batch_size']
         )
         
-        # ✅ FIX: Use OpenGait's default collate approach
-        # Instead of custom collate, let's use OpenGait's standard approach
-        # and handle the variable length issue in the model input processing
+        # ✅ FIX: Use OpenGait's CollateFn to handle variable-length sequences
+        collate_fn = CollateFn(self.train_dataset.label_set, sampler_cfg)
+        
         self.train_loader = DataLoader(
             dataset=self.train_dataset,
             batch_sampler=self.train_sampler,
+            collate_fn=collate_fn,
             num_workers=self.cfg['data_cfg']['num_workers']
-            # Remove custom collate_fn to use PyTorch's default
         )
         
-        # Test loader (simpler)
+        # Test loader with CollateFn
+        evaluator_cfg = self.cfg['evaluator_cfg']['sampler']
+        test_collate_fn = CollateFn(self.test_dataset.label_set, evaluator_cfg)
+        
         self.test_loader = DataLoader(
             dataset=self.test_dataset,
-            batch_size=self.cfg['evaluator_cfg']['sampler']['batch_size'],
+            batch_size=evaluator_cfg['batch_size'],
             shuffle=False,
+            collate_fn=test_collate_fn,
             num_workers=self.cfg['data_cfg']['num_workers']
-            # Remove custom collate_fn to use PyTorch's default
         )
         
     def create_dummy_input(self):
