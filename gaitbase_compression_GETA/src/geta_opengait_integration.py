@@ -12,16 +12,12 @@ def setup_paths():
     # Try different path configurations
     possible_geta_paths = [
         '/kaggle/working/geta',
-        '/kaggle/working/GAITBASE_x_GETA/geta',
-        os.path.join(current_dir, '../../geta'),
-        './geta'
+        '/kaggle/working/GAITBASE_x_GETA/geta'
     ]
     
     possible_opengait_paths = [
         '/kaggle/working/OpenGait',
-        '/kaggle/working/GAITBASE_x_GETA/OpenGait', 
-        os.path.join(current_dir, '../../OpenGait'),
-        './OpenGait'
+        '/kaggle/working/GAITBASE_x_GETA/OpenGait'
     ]
     
     # Add GETA path
