@@ -72,6 +72,9 @@ class GETAOpenGaitTrainer:
         # Store original working directory
         self.original_cwd = os.getcwd()
         
+        # CRITICAL: Initialize distributed training FIRST, before any OpenGait imports
+        distributed_success = self._init_distributed_if_needed()
+        
         # Change to OpenGait directory for config loading
         os.chdir(opengait_path)
         print(f"📁 Changed working directory to: {os.getcwd()}")
@@ -79,10 +82,18 @@ class GETAOpenGaitTrainer:
         try:
             self.cfg = config_loader(config_path)
             
-            # Initialize distributed training if not already done
-            self._init_distributed_if_needed()
+            # Get message manager - use fallback if distributed training failed
+            if distributed_success and not hasattr(self, 'msg_mgr'):
+                try:
+                    self.msg_mgr = get_msg_mgr()
+                except Exception as e:
+                    print(f"⚠️ Failed to get OpenGait message manager: {e}")
+                    print("🔧 Creating fallback message manager...")
+                    self._create_fallback_msg_mgr()
+            elif not hasattr(self, 'msg_mgr'):
+                # Fallback was already created in _init_distributed_if_needed
+                print("📊 Using fallback message manager created during initialization")
             
-            self.msg_mgr = get_msg_mgr()
         finally:
             # Return to original directory
             os.chdir(self.original_cwd)
@@ -100,100 +111,104 @@ class GETAOpenGaitTrainer:
             if not success:
                 print("🔧 Creating fallback message manager...")
                 self._create_fallback_msg_mgr()
-                return
+                return False
+            
+            return True
                 
         except ImportError:
             # Fallback to manual initialization
-            import torch.distributed as dist
-            
             try:
+                import torch.distributed as dist
+                
                 # Check if distributed is already initialized
                 if dist.is_initialized():
                     print("✅ Distributed training already initialized")
-                    return
-            except Exception:
-                pass
-            
-            try:
+                    return True
+                
                 # Try to initialize distributed training for single GPU
-                if torch.cuda.is_available():
-                    os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
-                    os.environ.setdefault('MASTER_PORT', '29500')
-                    os.environ.setdefault('RANK', '0')
-                    os.environ.setdefault('WORLD_SIZE', '1')
-                    
-                    dist.init_process_group(
-                        backend='nccl' if torch.cuda.is_available() else 'gloo',
-                        init_method='env://',
-                        world_size=1,
-                        rank=0
-                    )
-                    print("✅ Initialized single-GPU distributed training")
-                else:
-                    # CPU fallback
-                    os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
-                    os.environ.setdefault('MASTER_PORT', '29500')
-                    os.environ.setdefault('RANK', '0')
-                    os.environ.setdefault('WORLD_SIZE', '1')
-                    
-                    dist.init_process_group(
-                        backend='gloo',
-                        init_method='env://',
-                        world_size=1,
-                        rank=0
-                    )
-                    print("✅ Initialized single-CPU distributed training")
+                os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
+                os.environ.setdefault('MASTER_PORT', '29500')
+                os.environ.setdefault('RANK', '0')
+                os.environ.setdefault('WORLD_SIZE', '1')
+                
+                backend = 'nccl' if torch.cuda.is_available() else 'gloo'
+                dist.init_process_group(
+                    backend=backend,
+                    init_method='env://',
+                    world_size=1,
+                    rank=0
+                )
+                print(f"✅ Initialized distributed training with {backend}")
+                return True
                     
             except Exception as e:
                 print(f"⚠️ Failed to initialize distributed training: {e}")
                 print("🔧 Creating fallback message manager...")
                 self._create_fallback_msg_mgr()
+                return False
         
         except Exception as e:
             print(f"⚠️ Error during distributed initialization: {e}")
             print("🔧 Creating fallback message manager...")
             self._create_fallback_msg_mgr()
+            return False
     
     def _create_fallback_msg_mgr(self):
         """Create a fallback message manager for non-distributed training"""
-        from opengait.utils.msg_manager import MessageManager
-        
-        class FallbackMessageManager(MessageManager):
-            def __init__(self):
-                super().__init__()
-                self.logger = None
-                self.writer = None
+        try:
+            from opengait.utils.msg_manager import MessageManager
             
-            def init_manager(self, save_path, log_to_file, log_iter, iteration=0):
-                try:
-                    super().init_manager(save_path, log_to_file, log_iter, iteration)
-                except Exception as e:
-                    print(f"⚠️ Failed to initialize full message manager: {e}")
-                    self._init_basic_logger()
+            class FallbackMessageManager(MessageManager):
+                def __init__(self):
+                    super().__init__()
+                    self.logger = None
+                    self.writer = None
+                
+                def init_manager(self, save_path, log_to_file, log_iter, iteration=0):
+                    try:
+                        super().init_manager(save_path, log_to_file, log_iter, iteration)
+                    except Exception as e:
+                        print(f"⚠️ Failed to initialize full message manager: {e}")
+                        self._init_basic_logger()
+                
+                def _init_basic_logger(self):
+                    import logging
+                    self.logger = logging.getLogger('opengait-fallback')
+                    self.logger.setLevel(logging.INFO)
+                    handler = logging.StreamHandler()
+                    formatter = logging.Formatter('[%(asctime)s] [%(levelname)s]: %(message)s')
+                    handler.setFormatter(formatter)
+                    self.logger.addHandler(handler)
+                
+                def log_info(self, *args, **kwargs):
+                    if self.logger:
+                        self.logger.info(*args, **kwargs)
+                    else:
+                        print(*args, **kwargs)
+                
+                def log_warning(self, *args, **kwargs):
+                    if self.logger:
+                        self.logger.warning(*args, **kwargs)
+                    else:
+                        print("WARNING:", *args, **kwargs)
             
-            def _init_basic_logger(self):
-                import logging
-                self.logger = logging.getLogger('opengait-fallback')
-                self.logger.setLevel(logging.INFO)
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter('[%(asctime)s] [%(levelname)s]: %(message)s')
-                handler.setFormatter(formatter)
-                self.logger.addHandler(handler)
+            self.msg_mgr = FallbackMessageManager()
+            print("✅ Fallback message manager created")
             
-            def log_info(self, *args, **kwargs):
-                if self.logger:
-                    self.logger.info(*args, **kwargs)
-                else:
-                    print(*args, **kwargs)
-            
-            def log_warning(self, *args, **kwargs):
-                if self.logger:
-                    self.logger.warning(*args, **kwargs)
-                else:
+        except ImportError:
+            # Create an even simpler fallback
+            class SimpleFallbackMessageManager:
+                def log_info(self, *args, **kwargs):
+                    print("INFO:", *args, **kwargs)
+                
+                def log_warning(self, *args, **kwargs):
                     print("WARNING:", *args, **kwargs)
-        
-        self.msg_mgr = FallbackMessageManager()
-        print("✅ Fallback message manager created")
+                
+                def init_manager(self, save_path, log_to_file, log_iter, iteration=0):
+                    print(f"📊 Fallback manager initialized for {save_path}")
+            
+            self.msg_mgr = SimpleFallbackMessageManager()
+            print("✅ Simple fallback message manager created")
         
     def setup_model(self):
         """Setup the GaitBase model from OpenGait"""
