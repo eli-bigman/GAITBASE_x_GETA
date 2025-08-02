@@ -286,7 +286,7 @@ class GETAOpenGaitTrainer:
         
         # Simple dummy input for GETA model tracing only
         dummy_input = self.create_dummy_input()
-        print(f"Created dummy input for GETA tracing: {dummy_input.shape}")
+        print(f"Created dummy input for GETA tracing: 5-tuple with shapes: {[x.shape for x in dummy_input]}")
         
         # Initialize OTO with the model (GETA tutorial step 1)
         try:
