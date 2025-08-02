@@ -82,6 +82,15 @@ class GETAOpenGaitTrainer:
         try:
             self.cfg = config_loader(config_path)
             
+            # Fix dataset partition path to be relative to OpenGait directory
+            if 'data_cfg' in self.cfg and 'dataset_partition' in self.cfg['data_cfg']:
+                partition_path = self.cfg['data_cfg']['dataset_partition']
+                if partition_path.startswith('./'):
+                    # Convert to absolute path relative to OpenGait directory
+                    abs_partition_path = os.path.join(opengait_path, partition_path[2:])
+                    self.cfg['data_cfg']['dataset_partition'] = abs_partition_path
+                    print(f"🔧 Fixed dataset partition path: {abs_partition_path}")
+            
             # Now it's safe to get the message manager
             try:
                 self.msg_mgr = get_msg_mgr()
@@ -182,14 +191,25 @@ class GETAOpenGaitTrainer:
         
     def setup_model(self):
         """Setup the GaitBase model from OpenGait"""
-        Model = getattr(models, self.cfg['model_cfg']['model'])
-        self.model = Model(self.cfg, training=True)
+        # Change to OpenGait directory for model setup (important for dataset loading)
+        os.chdir(opengait_path)
+        print(f"📁 Changed to OpenGait directory for model setup: {os.getcwd()}")
         
-        # Move to GPU
-        if torch.cuda.is_available():
-            self.model = self.model.cuda()
+        try:
+            Model = getattr(models, self.cfg['model_cfg']['model'])
+            self.model = Model(self.cfg, training=True)
             
-        return self.model
+            # Move to GPU
+            if torch.cuda.is_available():
+                self.model = self.model.cuda()
+                
+            print("✅ Model setup successful")
+            return self.model
+            
+        finally:
+            # Return to original directory
+            os.chdir(self.original_cwd)
+            print(f"📁 Restored working directory after model setup: {os.getcwd()}")
     
     def setup_data(self):
         """Setup CASIA-B dataset with OpenGait's data pipeline"""
