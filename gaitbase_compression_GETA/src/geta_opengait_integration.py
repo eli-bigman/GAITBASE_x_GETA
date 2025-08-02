@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import yaml
 import os
+import numpy as np
 
 # Dynamic path detection - remove hardcoded paths
 def setup_paths():
@@ -63,6 +64,7 @@ from opengait.data import transform as base_transform
 from opengait.data.dataset import DataSet
 from opengait.modeling import models
 from opengait.utils import config_loader, get_msg_mgr
+from opengait.utils.common import np2var, list2var
 from opengait.modeling.losses import TripletLoss
 
 class GETAOpenGaitTrainer:
@@ -234,18 +236,29 @@ class GETAOpenGaitTrainer:
             batch_size=sampler_cfg['batch_size']
         )
         
+        # ✅ FIX: Add custom collate function to handle variable-length sequences
+        def collate_fn(batch):
+            """Custom collate function to handle variable-length gait sequences"""
+            return batch  # Return raw batch - OpenGait handles preprocessing internally
+        
         self.train_loader = DataLoader(
             dataset=self.train_dataset,
             batch_sampler=self.train_sampler,
-            num_workers=self.cfg['data_cfg']['num_workers']
+            num_workers=self.cfg['data_cfg']['num_workers'],
+            collate_fn=collate_fn
         )
         
         # Test loader (simpler)
+        def test_collate_fn(batch):
+            """Custom collate function for test data"""
+            return batch  # Return raw batch - OpenGait handles preprocessing internally
+            
         self.test_loader = DataLoader(
             dataset=self.test_dataset,
             batch_size=self.cfg['evaluator_cfg']['sampler']['batch_size'],
             shuffle=False,
-            num_workers=self.cfg['data_cfg']['num_workers']
+            num_workers=self.cfg['data_cfg']['num_workers'],
+            collate_fn=test_collate_fn
         )
         
     def create_dummy_input(self):
@@ -409,37 +422,75 @@ class GETAOpenGaitTrainer:
         
         for iteration in range(total_iter):
             try:
-                # Get real batch from OpenGait's data loader
-                batch_data = next(data_iter)
+                # Get real batch from OpenGait's data loader - this is raw data
+                raw_batch = next(data_iter)
             except StopIteration:
                 data_iter = iter(self.train_loader)
-                batch_data = next(data_iter)
+                raw_batch = next(data_iter)
             
-            # Let OpenGait handle its own data format
-            # Just pass it directly to the model like in OpenGait's main.py
-            inputs = batch_data[0]  # OpenGait's data format
-            labels = batch_data[1]  # OpenGait's labels
+            # ✅ FIX: Use OpenGait's inputs_pretreament to process raw batch data
+            # The raw_batch contains individual samples as [(data_list, seq_info), ...]
+            # We need to reorganize this into the format expected by inputs_pretreament
             
-            # Forward pass with real OpenGait data
-            outputs = self.model(inputs)
+            # Unpack raw batch data
+            seqs_batch = []
+            labs_batch = []
+            typs_batch = []
+            vies_batch = []
+            seqL_batch = []
             
-            # Calculate losses using OpenGait's approach
-            total_loss = 0
-            for i, loss_config in enumerate(self.losses):
-                if loss_config['type'] == 'TripletLoss':
-                    # TripletLoss expects feature embeddings
-                    if isinstance(outputs, (list, tuple)):
-                        loss_val = loss_config['loss_fn'](outputs[0], labels)
-                    else:
-                        loss_val = loss_config['loss_fn'](outputs, labels)
-                elif loss_config['type'] == 'CrossEntropyLoss':
-                    # CrossEntropyLoss expects logits
-                    if isinstance(outputs, (list, tuple)):
-                        loss_val = loss_config['loss_fn'](outputs[1], labels)
-                    else:
-                        loss_val = loss_config['loss_fn'](outputs, labels)
+            for data_list, seq_info in raw_batch:
+                # data_list contains the actual gait data (variable length tensors)
+                seqs_batch.append(data_list)
                 
-                weighted_loss = loss_val * loss_config['weight']
+                # seq_info contains [label, type, view, paths]
+                labs_batch.append(seq_info[0])  # label
+                typs_batch.append(seq_info[1])  # type (nm, bg, cl)
+                vies_batch.append(seq_info[2])  # view
+                
+                # Calculate sequence length for this sample
+                seq_len = len(data_list[0]) if data_list else 0
+                seqL_batch.append(seq_len)
+            
+            # Convert to format expected by inputs_pretreament
+            seqL_batch = torch.tensor(seqL_batch).unsqueeze(0)  # Shape: [1, batch_size]
+            if torch.cuda.is_available():
+                seqL_batch = seqL_batch.cuda()
+            
+            # Pack into format expected by inputs_pretreament
+            inputs = (seqs_batch, labs_batch, typs_batch, vies_batch, seqL_batch)
+            
+            # Use OpenGait's preprocessing pipeline
+            ipts = self.model.inputs_pretreament(inputs)
+            
+            # Forward pass with preprocessed OpenGait data
+            retval = self.model(ipts)
+            
+            # ✅ FIX: Use OpenGait's output format - model returns dict with training_feat
+            training_feat = retval['training_feat']
+            
+            # Calculate losses using OpenGait's approach - use loss aggregator like they do
+            total_loss = 0
+            for loss_config in self.losses:
+                loss_type = loss_config['type']
+                loss_fn = loss_config['loss_fn']
+                weight = loss_config['weight']
+                
+                if loss_type == 'TripletLoss':
+                    # Get triplet loss data from model output
+                    triplet_data = training_feat['triplet']
+                    embeddings = triplet_data['embeddings']
+                    labels = triplet_data['labels']
+                    loss_val = loss_fn(embeddings, labels)
+                    
+                elif loss_type == 'CrossEntropyLoss':
+                    # Get softmax loss data from model output
+                    softmax_data = training_feat['softmax']
+                    logits = softmax_data['logits']
+                    labels = softmax_data['labels']
+                    loss_val = loss_fn(logits, labels)
+                
+                weighted_loss = loss_val * weight
                 total_loss += weighted_loss
             
             # Backward pass
