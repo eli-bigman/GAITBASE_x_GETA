@@ -85,8 +85,24 @@ class GETAOpenGaitTrainer:
             # Now it's safe to get the message manager
             try:
                 self.msg_mgr = get_msg_mgr()
+                # Check if logger is properly initialized
+                if not hasattr(self.msg_mgr, 'logger') or self.msg_mgr.logger is None:
+                    print("⚠️ Message manager logger not initialized, initializing it...")
+                    # Initialize the message manager properly
+                    import tempfile
+                    import os.path as osp
+                    temp_save_path = tempfile.mkdtemp()
+                    self.msg_mgr.init_manager(
+                        save_path=temp_save_path,
+                        log_to_file=False,  # Don't log to file for now
+                        log_iter=100,
+                        iteration=0
+                    )
+                    print("✅ Message manager properly initialized")
+                else:
+                    print("✅ Message manager already properly initialized")
             except Exception as e:
-                print(f"⚠️ Failed to get message manager: {e}")
+                print(f"⚠️ Failed to get/initialize message manager: {e}")
                 # Create simple fallback
                 self.msg_mgr = self._create_simple_msg_mgr()
             
@@ -125,12 +141,42 @@ class GETAOpenGaitTrainer:
             print(f"⚠️ Distributed training init failed: {e}")
     
     def _create_simple_msg_mgr(self):
-        """Create simple message manager fallback"""
+        """Create simple message manager fallback that matches OpenGait's interface"""
         class SimpleMsgMgr:
+            def __init__(self):
+                # Create a simple logger-like object
+                import logging
+                self.logger = logging.getLogger("SimpleMsgMgr")
+                self.logger.setLevel(logging.INFO)
+                
+                # Add console handler if not exists
+                if not self.logger.handlers:
+                    handler = logging.StreamHandler()
+                    formatter = logging.Formatter('%(levelname)s: %(message)s')
+                    handler.setFormatter(formatter)
+                    self.logger.addHandler(handler)
+            
             def log_info(self, *args, **kwargs):
-                print("INFO:", *args, **kwargs)
+                if hasattr(self, 'logger') and self.logger:
+                    # Convert args to string for logging
+                    message = ' '.join(str(arg) for arg in args)
+                    self.logger.info(message, **kwargs)
+                else:
+                    print("INFO:", *args, **kwargs)
+                    
             def log_warning(self, *args, **kwargs):
-                print("WARNING:", *args, **kwargs)
+                if hasattr(self, 'logger') and self.logger:
+                    message = ' '.join(str(arg) for arg in args)
+                    self.logger.warning(message, **kwargs)
+                else:
+                    print("WARNING:", *args, **kwargs)
+                    
+            def log_error(self, *args, **kwargs):
+                if hasattr(self, 'logger') and self.logger:
+                    message = ' '.join(str(arg) for arg in args)
+                    self.logger.error(message, **kwargs)
+                else:
+                    print("ERROR:", *args, **kwargs)
         
         return SimpleMsgMgr()
         
