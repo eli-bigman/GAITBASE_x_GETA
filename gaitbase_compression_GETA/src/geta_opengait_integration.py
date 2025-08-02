@@ -236,29 +236,23 @@ class GETAOpenGaitTrainer:
             batch_size=sampler_cfg['batch_size']
         )
         
-        # ✅ FIX: Add custom collate function to handle variable-length sequences
-        def collate_fn(batch):
-            """Custom collate function to handle variable-length gait sequences"""
-            return batch  # Return raw batch - OpenGait handles preprocessing internally
-        
+        # ✅ FIX: Use OpenGait's default collate approach
+        # Instead of custom collate, let's use OpenGait's standard approach
+        # and handle the variable length issue in the model input processing
         self.train_loader = DataLoader(
             dataset=self.train_dataset,
             batch_sampler=self.train_sampler,
-            num_workers=self.cfg['data_cfg']['num_workers'],
-            collate_fn=collate_fn
+            num_workers=self.cfg['data_cfg']['num_workers']
+            # Remove custom collate_fn to use PyTorch's default
         )
         
         # Test loader (simpler)
-        def test_collate_fn(batch):
-            """Custom collate function for test data"""
-            return batch  # Return raw batch - OpenGait handles preprocessing internally
-            
         self.test_loader = DataLoader(
             dataset=self.test_dataset,
             batch_size=self.cfg['evaluator_cfg']['sampler']['batch_size'],
             shuffle=False,
-            num_workers=self.cfg['data_cfg']['num_workers'],
-            collate_fn=test_collate_fn
+            num_workers=self.cfg['data_cfg']['num_workers']
+            # Remove custom collate_fn to use PyTorch's default
         )
         
     def create_dummy_input(self):
@@ -422,50 +416,14 @@ class GETAOpenGaitTrainer:
         
         for iteration in range(total_iter):
             try:
-                # Get real batch from OpenGait's data loader - this is raw data
-                raw_batch = next(data_iter)
+                # Get batch from OpenGait's data loader in standard format
+                inputs = next(data_iter)
             except StopIteration:
                 data_iter = iter(self.train_loader)
-                raw_batch = next(data_iter)
+                inputs = next(data_iter)
             
-            # ✅ FIX: Use OpenGait's inputs_pretreament to process raw batch data
-            # The raw_batch contains individual samples as [(data_list, seq_info), ...]
-            # We need to reorganize this into the format expected by inputs_pretreament
-            
-            # Initialize batch containers
-            all_seqs = []  # Will contain all sequences for this batch
-            labs_batch = []
-            typs_batch = []
-            vies_batch = []
-            seqL_batch = []
-            
-            for data_list, seq_info in raw_batch:
-                # data_list contains the actual gait data (variable length tensors)
-                # For CASIA-B, data_list[0] contains the silhouette frames
-                all_seqs.append(data_list[0])  # Add this sequence to batch
-                
-                # seq_info contains [label, type, view, paths]
-                labs_batch.append(seq_info[0])  # label
-                typs_batch.append(seq_info[1])  # type (nm, bg, cl)
-                vies_batch.append(seq_info[2])  # view
-                
-                # Calculate sequence length for this sample
-                seq_len = len(data_list[0]) if data_list else 0
-                seqL_batch.append(seq_len)
-            
-            # ✅ FIX: seqs_batch should be a list of data types, not individual sequences
-            # For CASIA-B silhouettes, we have one data type containing all sequences
-            seqs_batch = [all_seqs]  # List with one element containing all sequences
-            
-            # Convert to format expected by inputs_pretreament
-            seqL_batch = torch.tensor(seqL_batch).unsqueeze(0)  # Shape: [1, batch_size]
-            if torch.cuda.is_available():
-                seqL_batch = seqL_batch.cuda()
-            
-            # Pack into format expected by inputs_pretreament
-            inputs = (seqs_batch, labs_batch, typs_batch, vies_batch, seqL_batch)
-            
-            # Use OpenGait's preprocessing pipeline
+            # ✅ FIX: Use OpenGait's standard preprocessing pipeline
+            # inputs should be in the format expected by inputs_pretreament
             ipts = self.model.inputs_pretreament(inputs)
             
             # Forward pass with preprocessed OpenGait data
