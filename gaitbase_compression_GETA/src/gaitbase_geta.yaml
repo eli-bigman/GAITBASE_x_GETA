@@ -90,13 +90,13 @@ trainer_cfg:
   enable_float16: false # half_percesion float for memory reduction and speedup set to false to let GETA optimization work
   fix_BN: false
   with_test: true # whether to test model after each training iteration
-  log_iter: 100
+  log_iter: 10  # Log every 10 iterations for testing
   restore_ckpt_strict: true
   restore_hint: 0
-  save_iter: 1000
-  save_name: GaitBase_GETA
+  save_iter: 20  # Save checkpoint every 20 iterations for testing
+  save_name: GaitBase_GETA_Test
   sync_BN: true
-  total_iter: 10000
+  total_iter: 100  # Quick test with 100 iterations
   sampler:
     batch_shuffle: true
     batch_size:
