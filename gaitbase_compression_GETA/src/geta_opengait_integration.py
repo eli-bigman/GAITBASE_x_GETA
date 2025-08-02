@@ -274,14 +274,16 @@ class GETAOpenGaitTrainer:
         # Create dummy views (batch_size,) - camera angles 
         dummy_vies = ['000'] * batch_size  # camera view angle
         
-        # Create dummy sequence lengths - tensor with multiple sequence lengths
-        dummy_seqL = torch.tensor([frames_num, frames_num], dtype=torch.int32)  # Two sequences
+        # Create dummy sequence lengths - should be a Python list/numpy array as real data
+        # The real OpenGait data loader returns sequence lengths as lists, not tensors
+        import numpy as np
+        dummy_seqL = [frames_num] * batch_size  # Python list: [30, 30]
         
-        # Move to GPU if available
+        # Move tensors to GPU if available
         if torch.cuda.is_available():
             dummy_seq = dummy_seq.cuda()
             dummy_labs = dummy_labs.cuda()
-            dummy_seqL = dummy_seqL.cuda()
+            # Note: seqL stays as Python list - will be converted by OpenGait's np2var()
         
         # OpenGait expects inputs as a tuple of (seqs, labs, typs, vies, seqL)
         # where seqs is a list of sequences (for different input types)
