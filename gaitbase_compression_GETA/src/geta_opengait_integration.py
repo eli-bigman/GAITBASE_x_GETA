@@ -272,7 +272,7 @@ class GETAOpenGaitTrainer:
         labs = torch.randint(0, 10, (batch_size,)).long()    # labels as long tensor
         typs = ['nm'] * batch_size                           # types (nm, bg, cl) - keep as list
         vies = ['090'] * batch_size                          # views - keep as list  
-        seqL = torch.full((batch_size,), frames).int()       # sequence lengths as int tensor
+        seqL = torch.full((1, batch_size), frames).int()     # sequence lengths as 2D tensor [1, batch_size]
         
         if torch.cuda.is_available():
             sils = sils.cuda()
