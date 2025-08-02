@@ -11,7 +11,7 @@ def setup_paths():
     
     # Try different path configurations
     possible_geta_paths = [
-        '/kaggle/working/geta',
+        '/kaggle/working/GAITBASE_x_GETA/geta',
         '/kaggle/working/GAITBASE_x_GETA/geta'
     ]
     
