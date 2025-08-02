@@ -255,7 +255,7 @@ class GETAOpenGaitTrainer:
     def create_dummy_input(self):
         """Create dummy input for GETA model tracing.
         
-        OpenGait models expect a 5-tuple: (seqs, labs, typs, vies, seqL)
+        OpenGait models expect a single argument 'inputs' which is a 5-tuple: (seqs, labs, typs, vies, seqL)
         Based on CASIA-B dataset format.
         """
         batch_size = 4
@@ -277,8 +277,12 @@ class GETAOpenGaitTrainer:
             vies = vies.cuda()
             seqL = seqL.cuda()
         
-        # Return as tuple for GETA OTO initialization
-        return (seqs, labs, typs, vies, seqL)
+        # OpenGait forward expects: forward(inputs) where inputs is the 5-tuple
+        # So we need to wrap the tuple as a single argument
+        inputs_tuple = (seqs, labs, typs, vies, seqL)
+        
+        # Return the tuple wrapped in another tuple so GETA passes it as a single argument
+        return (inputs_tuple,)
         
     def setup_geta_oto(self):
         """Setup GETA OTO for compression - simplified approach following GETA tutorial"""
@@ -286,7 +290,7 @@ class GETAOpenGaitTrainer:
         
         # Simple dummy input for GETA model tracing only
         dummy_input = self.create_dummy_input()
-        print(f"Created dummy input for GETA tracing: 5-tuple with shapes: {[x.shape for x in dummy_input]}")
+        print(f"Created dummy input for GETA tracing: single arg containing 5-tuple with shapes: {[x.shape for x in dummy_input[0]]}")
         
         # Initialize OTO with the model (GETA tutorial step 1)
         try:
