@@ -3,31 +3,7 @@ import random
 import torchvision.transforms as T
 import cv2
 import math
-
-import sys
-import os
-
-# Add paths first
-current_dir = os.path.dirname(os.path.abspath(__file__))
-geta_path = os.path.join(current_dir, '../../geta')
-opengait_path = os.path.join(current_dir, '../../OpenGait')
-
-if os.path.exists(geta_path):
-    sys.path.insert(0, geta_path)
-    print(f"✅ Added GETA path: {geta_path}")
-
-if os.path.exists(opengait_path):
-    sys.path.insert(0, opengait_path)
-    print(f"✅ Added OpenGait path: {opengait_path}")
-
-# ✅ NEW: Fix the circular import issue
-import opengait.data.transform
-# Patch the problematic import
-opengait.data.transform.base_transform = opengait.data.transform
-
-# Now safe to import other modules
-from opengait.data import transform as base_transform
-# ... rest of your imports
+# from opengait.data import transform as base_transform
 from opengait.utils import is_list, is_dict, get_valid_args
 
 
@@ -242,7 +218,10 @@ def Compose(trf_cfg):
 
 def get_transform(trf_cfg=None):
     if is_dict(trf_cfg):
-        transform = getattr(base_transform, trf_cfg['type'])
+        # ✅ Use current module instead of base_transform
+        import sys
+        current_module = sys.modules[__name__]
+        transform = getattr(current_module, trf_cfg['type'])
         valid_trf_arg = get_valid_args(transform, trf_cfg, ['type'])
         return transform(**valid_trf_arg)
     if trf_cfg is None:
