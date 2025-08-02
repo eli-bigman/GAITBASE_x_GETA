@@ -253,21 +253,39 @@ class GETAOpenGaitTrainer:
         )
         
     def create_dummy_input(self):
-        """Create appropriate dummy input for GaitBase"""
-        # Get frame configuration from config
+        """Create appropriate dummy input for GaitBase model"""
+        # Get configuration
         frames_num = self.cfg['trainer_cfg']['sampler'].get('frames_num_fixed', 30)
         
         # For CASIA-B: silhouettes are grayscale (1 channel)
         # Typical size after preprocessing: 64x44
         batch_size = 1
-        channels = 1
-        height = 64  # Adjust based on your preprocessing
-        width = 44   # Adjust based on your preprocessing
         
-        dummy_input = torch.rand(batch_size, frames_num, channels, height, width)
+        # Create dummy sequence data - OpenGait expects [batch_size, frames, height, width]
+        # Note: OpenGait models typically work with silhouettes (grayscale)
+        dummy_seq = torch.rand(batch_size, frames_num, 64, 44)
         
+        # Create dummy labels (batch_size,)
+        dummy_labs = torch.randint(0, 74, (batch_size,))  # CASIA-B has 74 training subjects
+        
+        # Create dummy types (batch_size,) - typically walking types
+        dummy_typs = ['nm'] * batch_size  # normal walking type
+        
+        # Create dummy views (batch_size,) - camera angles 
+        dummy_vies = ['000'] * batch_size  # camera view angle
+        
+        # Create dummy sequence lengths (batch_size,)
+        dummy_seqL = torch.full((batch_size,), frames_num, dtype=torch.int32)
+        
+        # Move to GPU if available
         if torch.cuda.is_available():
-            dummy_input = dummy_input.cuda()
+            dummy_seq = dummy_seq.cuda()
+            dummy_labs = dummy_labs.cuda()
+            dummy_seqL = dummy_seqL.cuda()
+        
+        # OpenGait expects inputs as a tuple of (seqs, labs, typs, vies, seqL)
+        # where seqs is a list of sequences (for different input types)
+        dummy_input = ([dummy_seq], dummy_labs, dummy_typs, dummy_vies, dummy_seqL)
         
         return dummy_input
         
@@ -317,14 +335,24 @@ class GETAOpenGaitTrainer:
         
         # Test forward pass with dummy input
         dummy_input = self.create_dummy_input()
+        print(f"Created dummy input with sequence shape: {dummy_input[0][0].shape}")
         
         try:
             with torch.no_grad():
                 output = self.model(dummy_input)
             print("✅ Forward pass successful")
-            print(f"Output shape: {output.shape if hasattr(output, 'shape') else type(output)}")
+            print(f"Output type: {type(output)}")
+            if hasattr(output, 'shape'):
+                print(f"Output shape: {output.shape}")
+            elif isinstance(output, (list, tuple)):
+                print(f"Output is {type(output)} with {len(output)} elements")
+                for i, item in enumerate(output):
+                    if hasattr(item, 'shape'):
+                        print(f"  Output[{i}] shape: {item.shape}")
         except Exception as e:
             print(f"❌ Forward pass failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
         
         # Check for problematic layers
