@@ -28,11 +28,11 @@ from data.transform import get_transform
 from data.collate_fn import CollateFn
 from data.dataset import DataSet
 import data.sampler as Samplers
-from opengait.utils Odict, mkdir, ddp_all_gather
-from opengait.utils get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
+from opengait.utils import Odict, mkdir, ddp_all_gather
+from opengait.utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
 from evaluation import evaluator as eval_functions
-from opengait.utils NoOp
-from opengait.utils get_msg_mgr
+from opengait.utils import NoOp
+from opengait.utils import get_msg_mgr
 
 __all__ = ['BaseModel']
 

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from ..base_model import BaseModel
 from ..modules import PackSequenceWrapper, HorizontalPoolingPyramid, SetBlockWrapper, ParallelBN1d, SeparateFCs
 
-from opengait.utils np2var, list2var, get_valid_args, ddp_all_gather
+from opengait.utils import np2var, list2var, get_valid_args, ddp_all_gather
 from data.transform import get_transform
 from einops import rearrange
 
@@ -143,7 +143,7 @@ class GaitSSB_Pretrain(BaseModel):
 
 import torch.optim as optim
 import numpy as np
-from opengait.utils get_valid_args, list2var
+from opengait.utils import get_valid_args, list2var
 
 class no_grad(torch.no_grad):
     def __init__(self, enable=True):
