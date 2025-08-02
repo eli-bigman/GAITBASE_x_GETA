@@ -27,7 +27,7 @@ from .loss_aggregator import LossAggregator
 from opengait.data.transform import get_transform
 from opengait.data.collate_fn import CollateFn
 from opengait.data.dataset import DataSet
-import data.sampler as Samplers
+import opengait.data.sampler as Samplers
 from opengait.utils import Odict, mkdir, ddp_all_gather
 from opengait.utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
 from opengait.evaluation import evaluator as eval_functions
