@@ -10,7 +10,7 @@ evaluator_cfg:
   enable_float16: true
   restore_ckpt_strict: true
   restore_hint: 16000 # Resume from iteration 16000
-  save_name: GaitBase_GETA_60K_Production  # 🎯 Match trainer save_name
+  save_name: GaitBase_GETA_40K_Production  # 🎯 Match trainer save_name
   sampler:
     batch_shuffle: false
     batch_size: 8  # Optimized for memory and performance
