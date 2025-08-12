@@ -1,6 +1,6 @@
 import torch
 from .base import BaseLoss
-from opengait.evaluation import mean_iou
+from evaluation import mean_iou
 
 
 class BinaryCrossEntropyLoss(BaseLoss):

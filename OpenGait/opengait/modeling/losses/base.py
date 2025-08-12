@@ -1,9 +1,9 @@
 from ctypes import ArgumentError
 import torch.nn as nn
 import torch
-from opengait.utils import Odict
+from utils import Odict
 import functools
-from opengait.utils import ddp_all_gather
+from utils import ddp_all_gather
 
 
 def gather_and_scale_wrapper(func):

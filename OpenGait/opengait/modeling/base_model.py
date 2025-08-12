@@ -24,15 +24,15 @@ from abc import abstractmethod
 
 from . import backbones
 from .loss_aggregator import LossAggregator
-from opengait.data.transform import get_transform
-from opengait.data.collate_fn import CollateFn
-from opengait.data.dataset import DataSet
-import opengait.data.sampler as Samplers
-from opengait.utils import Odict, mkdir, ddp_all_gather
-from opengait.utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
-from opengait.evaluation import evaluator as eval_functions
-from opengait.utils import NoOp
-from opengait.utils import get_msg_mgr
+from data.transform import get_transform
+from data.collate_fn import CollateFn
+from data.dataset import DataSet
+import data.sampler as Samplers
+from utils import Odict, mkdir, ddp_all_gather
+from utils import get_valid_args, is_list, is_dict, np2var, ts2np, list2var, get_attr_from
+from evaluation import evaluator as eval_functions
+from utils import NoOp
+from utils import get_msg_mgr
 
 __all__ = ['BaseModel']
 
@@ -139,7 +139,7 @@ class BaseModel(MetaModel, nn.Module):
 
         if training and self.engine_cfg['enable_float16']:
             self.Scaler = GradScaler()
-        self.save_path = osp.join('/kaggle/working/output/', cfgs['data_cfg']['dataset_name'],
+        self.save_path = osp.join('output/', cfgs['data_cfg']['dataset_name'],
                                   cfgs['model_cfg']['model'], self.engine_cfg['save_name'])
 
         self.build_network(cfgs['model_cfg'])

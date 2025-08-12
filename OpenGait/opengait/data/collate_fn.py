@@ -1,7 +1,7 @@
 import math
 import random
 import numpy as np
-from opengait.utils import get_msg_mgr
+from utils import get_msg_mgr
 
 
 class CollateFn(object):

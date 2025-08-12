@@ -3,8 +3,8 @@ import random
 import torchvision.transforms as T
 import cv2
 import math
-# from opengait.data import transform as base_transform
-from opengait.utils import is_list, is_dict, get_valid_args
+from data import transform as base_transform
+from utils import is_list, is_dict, get_valid_args
 
 
 class NoOperation():
@@ -218,10 +218,7 @@ def Compose(trf_cfg):
 
 def get_transform(trf_cfg=None):
     if is_dict(trf_cfg):
-        # ✅ Use current module instead of base_transform
-        import sys
-        current_module = sys.modules[__name__]
-        transform = getattr(current_module, trf_cfg['type'])
+        transform = getattr(base_transform, trf_cfg['type'])
         valid_trf_arg = get_valid_args(transform, trf_cfg, ['type'])
         return transform(**valid_trf_arg)
     if trf_cfg is None:
