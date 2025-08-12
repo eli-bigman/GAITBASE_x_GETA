@@ -139,7 +139,7 @@ class BaseModel(MetaModel, nn.Module):
 
         if training and self.engine_cfg['enable_float16']:
             self.Scaler = GradScaler()
-        self.save_path = osp.join('output/', cfgs['data_cfg']['dataset_name'],
+        self.save_path = osp.join('/kaggle/working/output/', cfgs['data_cfg']['dataset_name'],
                                   cfgs['model_cfg']['model'], self.engine_cfg['save_name'])
 
         self.build_network(cfgs['model_cfg'])
