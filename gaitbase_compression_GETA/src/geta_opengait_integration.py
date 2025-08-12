@@ -417,6 +417,18 @@ class GETAOpenGaitTrainer:
         start_iter = getattr(self, 'starting_iteration', 0)
         if start_iter > 0:
             print(f"🔄 Resuming training from iteration {start_iter}")
+            
+            # Fix learning rate based on milestones passed
+            initial_lr = self.cfg['optimizer_cfg']['lr']
+            current_lr = initial_lr
+            for milestone in milestones:
+                if start_iter >= milestone:
+                    current_lr *= gamma
+            
+            # Apply the correct learning rate
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = current_lr
+            print(f"🎯 Adjusted learning rate to {current_lr:.6f} for iteration {start_iter}")
         
         for iteration in range(start_iter, total_iter):
             try:
