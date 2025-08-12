@@ -84,7 +84,7 @@ trainer_cfg:
   restore_ckpt_strict: true
   restore_hint: 48000
   save_iter: 60000
-  save_name: GaitBase_DA
+  save_name: GaitBase_GETA_60K_Production
   sync_BN: true
   total_iter: 60000
   sampler:
