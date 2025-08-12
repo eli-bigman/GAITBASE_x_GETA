@@ -413,7 +413,12 @@ class GETAOpenGaitTrainer:
         # Use OpenGait's real data loader
         data_iter = iter(self.train_loader)
         
-        for iteration in range(total_iter):
+        # Quick fix: Check if we have a starting iteration from checkpoint restoration
+        start_iter = getattr(self, 'starting_iteration', 0)
+        if start_iter > 0:
+            print(f"🔄 Resuming training from iteration {start_iter}")
+        
+        for iteration in range(start_iter, total_iter):
             try:
                 # Get batch from OpenGait's data loader in standard format
                 inputs = next(data_iter)

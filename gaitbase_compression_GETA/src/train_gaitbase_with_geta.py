@@ -58,6 +58,48 @@ def main():
     print("Setting up data...")
     trainer.setup_data()
     
+    # Quick fix: Check for checkpoint restoration and get starting iteration
+    restore_hint = trainer.cfg['trainer_cfg'].get('restore_hint', 0)
+    starting_iteration = 0
+    
+    if restore_hint > 0:
+        print(f"🔄 Attempting to resume from iteration {restore_hint}...")
+        
+        # Look for the checkpoint file
+        save_name = trainer.cfg['trainer_cfg']['save_name']
+        checkpoint_path = f'./checkpoints/{save_name}-{restore_hint:05d}.pt'
+        
+        try:
+            if os.path.exists(checkpoint_path):
+                print(f"📂 Found checkpoint: {checkpoint_path}")
+                checkpoint = torch.load(checkpoint_path, map_location='cpu')
+                
+                # Load model state
+                trainer.model.load_state_dict(checkpoint['model'])
+                
+                # Get the actual iteration from checkpoint
+                starting_iteration = checkpoint.get('iteration', restore_hint)
+                print(f"✅ Model restored from iteration {starting_iteration}")
+                
+                # Load optimizer state if available and not reset
+                if not trainer.cfg['trainer_cfg'].get('optimizer_reset', False):
+                    if 'optimizer' in checkpoint and hasattr(trainer, 'optimizer'):
+                        try:
+                            trainer.optimizer.load_state_dict(checkpoint['optimizer'])
+                            print("✅ Optimizer state restored")
+                        except Exception as e:
+                            print(f"⚠️ Could not restore optimizer state: {e}")
+                
+                print(f"🎯 Training will resume from iteration {starting_iteration}")
+            else:
+                print(f"⚠️ Checkpoint not found at {checkpoint_path}, starting from iteration 0")
+        except Exception as e:
+            print(f"⚠️ Error loading checkpoint: {e}")
+            print("Starting fresh training from iteration 0")
+    
+    # Store starting iteration for the trainer
+    trainer.starting_iteration = starting_iteration
+    
     if args.validate:
         print("Validating compression compatibility...")
         if not trainer.validate_compression_compatibility():
