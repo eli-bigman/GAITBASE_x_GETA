@@ -92,7 +92,7 @@ trainer_cfg:
   with_test: false # Set to false to focus on training for production run
   log_iter: 500  # Log every 500 iterations for good monitoring
   restore_ckpt_strict: true
-  restore_hint: 48000 # Resume from iteration 48000
+  restore_hint: 46000 # Resume from iteration 46000
   optimizer_reset: true     # Add this - skip loading optimizer state
   scheduler_reset: true    # Add this - skip loading scheduler state 
   save_iter: 2000  # Save every 2000 iterations (25 checkpoints total for 40K training)
