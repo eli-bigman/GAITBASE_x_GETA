@@ -82,7 +82,7 @@ trainer_cfg:
   with_test: false
   log_iter: 100
   restore_ckpt_strict: true
-  restore_hint: 0
+  restore_hint: 48000
   save_iter: 60000
   save_name: GaitBase_DA
   sync_BN: true
