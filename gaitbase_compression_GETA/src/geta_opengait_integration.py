@@ -194,6 +194,9 @@ class GETAOpenGaitTrainer:
         
     def setup_model(self):
         """Setup the GaitBase model from OpenGait"""
+        # Apply PyTorch loading fix for GETA checkpoints
+        self.fix_pytorch_loading()
+        
         # Change to OpenGait directory for model setup (important for dataset loading)
         os.chdir(opengait_path)
         print(f"📁 Changed to OpenGait directory for model setup: {os.getcwd()}")
@@ -213,6 +216,48 @@ class GETAOpenGaitTrainer:
             # Return to original directory
             os.chdir(self.original_cwd)
             print(f"📁 Restored working directory after model setup: {os.getcwd()}")
+    
+    def fix_pytorch_loading(self):
+        """Fix PyTorch loading for GETA checkpoints"""
+        import torch.serialization
+        
+        # Add GETA classes to safe globals
+        try:
+            from only_train_once.transform.tensor_transform import TensorTransform
+            torch.serialization.add_safe_globals([TensorTransform])
+            print("✅ Added GETA TensorTransform to PyTorch safe globals")
+        except ImportError as e:
+            print(f"⚠️ Could not import GETA TensorTransform: {e}")
+        
+        # Patch torch.load to handle GETA checkpoints
+        import opengait.modeling.base_model as base_model
+        
+        original_load = torch.load
+        
+        def geta_compatible_load(*args, **kwargs):
+            """Load function that handles GETA checkpoints"""
+            # Check if this might be a GETA checkpoint
+            checkpoint_path = args[0] if args else kwargs.get('f', '')
+            is_geta_checkpoint = (
+                'GETA' in str(checkpoint_path) or 
+                'geta' in str(checkpoint_path).lower() or
+                'GaitBase_GETA' in str(checkpoint_path)
+            )
+            
+            if 'weights_only' not in kwargs:
+                if is_geta_checkpoint:
+                    kwargs['weights_only'] = False
+                    print(f"🔧 Loading GETA checkpoint with weights_only=False: {os.path.basename(str(checkpoint_path))}")
+                else:
+                    kwargs['weights_only'] = True  # Keep security for other checkpoints
+            
+            return original_load(*args, **kwargs)
+        
+        # Apply the patch to both torch and OpenGait's base_model
+        torch.load = geta_compatible_load
+        base_model.torch.load = geta_compatible_load
+        
+        print("✅ Patched torch.load for GETA checkpoint compatibility")
     
     def setup_data(self):
         """Setup CASIA-B dataset with OpenGait's data pipeline"""
