@@ -110,6 +110,9 @@ def test_integration():
     """Test the GETA-OpenGait integration"""
     print("\n=== Testing GETA-OpenGait Integration ===")
     
+    # Apply the PyTorch loading fix for this test
+    print("🔧 Applying GETA checkpoint loading fix...")
+    
     try:
         from geta_opengait_integration import GETAOpenGaitTrainer
         print("✅ Integration module import successful")
@@ -238,10 +241,53 @@ def run_model_evaluation():
         if dist.is_initialized():
             dist.destroy_process_group()
 
+def fix_pytorch_loading_global():
+    """Global fix for PyTorch loading issues with GETA checkpoints"""
+    import torch
+    import torch.serialization
+    
+    # Add GETA classes to safe globals
+    try:
+        from only_train_once.transform.tensor_transform import TensorTransform
+        torch.serialization.add_safe_globals([TensorTransform])
+        print("✅ Added GETA TensorTransform to PyTorch safe globals")
+    except ImportError as e:
+        print(f"⚠️ Could not import GETA TensorTransform: {e}")
+    
+    # Monkey patch torch.load globally for GETA compatibility
+    original_load = torch.load
+    
+    def safe_geta_load(*args, **kwargs):
+        """Load function that handles GETA checkpoints safely"""
+        # Check if this might be a GETA checkpoint
+        checkpoint_path = args[0] if args else kwargs.get('f', '')
+        is_geta_checkpoint = (
+            'GETA' in str(checkpoint_path) or 
+            'geta' in str(checkpoint_path).lower() or
+            'GaitBase_GETA' in str(checkpoint_path)
+        )
+        
+        if 'weights_only' not in kwargs:
+            if is_geta_checkpoint:
+                kwargs['weights_only'] = False  # GETA checkpoints need full loading
+                print(f"🔧 Loading GETA checkpoint with weights_only=False: {os.path.basename(str(checkpoint_path))}")
+            else:
+                kwargs['weights_only'] = True  # Keep security for other checkpoints
+        
+        return original_load(*args, **kwargs)
+    
+    # Apply the global patch
+    torch.load = safe_geta_load
+    print("✅ Globally patched torch.load for GETA checkpoint compatibility")
+
 def main():
     """Main function to run all tests and evaluation"""
     print("🚀 GETA Model Testing Suite")
     print("=" * 50)
+    
+    # Apply PyTorch loading fix before anything else
+    fix_pytorch_loading_global()
+    print()
     
     # Step 1: Test environment setup
     if not test_setup():
